@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInAnonymously,
   signInWithCustomToken,
-  onAuthStateChanged,
+  onAuthStateChanged
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -13,7 +13,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-  onSnapshot,
+  onSnapshot
 } from 'firebase/firestore';
 import {
   Shield,
@@ -38,33 +38,33 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
   Bot,
   Trash2,
-  ScrollText,
   HelpCircle,
   BookOpen,
-  Sparkle,
+  FastForward,
+  ScrollText
 } from 'lucide-react';
 
 // ============================================================================
-// INISIALISASI FIREBASE (MULTIPLAYER REAL-TIME & SINKRONISASI RUANGAN)
+// KONFIGURASI FIREBASE & INISIALISASI MULTIPLAYER REAL-TIME
 // ============================================================================
 const firebaseConfig = {
-  apiKey: 'AIzaSyACgiMu5DF5GLHnv7Kk4-gkZtGc3d4rcNA',
-  authDomain: 'avalon-mabar.firebaseapp.com',
-  projectId: 'avalon-mabar',
-  storageBucket: 'avalon-mabar.firebasestorage.app',
-  messagingSenderId: '890372490115',
-  appId: '1:890372490115:web:ddffe979f848f022142cb6',
+  apiKey: "AIzaSyACgiMu5DF5GLHnv7Kk4-gkZtGc3d4rcNA",
+  authDomain: "avalon-mabar.firebaseapp.com",
+  projectId: "avalon-mabar",
+  storageBucket: "avalon-mabar.firebasestorage.app",
+  messagingSenderId: "890372490115",
+  appId: "1:890372490115:web:ddffe979f848f022142cb6"
 };
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = 'avalon-mabar';
+const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'avalon-mabar-id';
 
 // ============================================================================
-// KONSTANTA ATURAN RESMI BOARD GAME AVALON (5 - 10 PEMAIN)
+// MATRIKS ATURAN RESMI THE RESISTANCE: AVALON (5 - 10 PEMAIN)
 // ============================================================================
 const PLAYER_MATRIX = {
   5: { good: 3, evil: 2, quests: [2, 3, 2, 3, 3], twoFailsQuest4: false },
@@ -72,90 +72,7 @@ const PLAYER_MATRIX = {
   7: { good: 4, evil: 3, quests: [2, 3, 3, 4, 4], twoFailsQuest4: true },
   8: { good: 5, evil: 3, quests: [3, 4, 4, 5, 5], twoFailsQuest4: true },
   9: { good: 6, evil: 3, quests: [3, 4, 4, 5, 5], twoFailsQuest4: true },
-  10: { good: 6, evil: 4, quests: [3, 4, 4, 5, 5], twoFailsQuest4: true },
-};
-
-const ROLE_DEFINITIONS = {
-  MERLIN: {
-    id: 'MERLIN',
-    name: 'Merlin',
-    alignment: 'GOOD',
-    teamLabel: 'Kubu Setia Arthur',
-    badgeColor: 'blue',
-    shortDesc: 'Penyihir Agung yang mengetahui siapa saja pengkhianat.',
-    ability:
-      'Kamu mengetahui identitas seluruh anggota Kubu Mordred (kecuali Mordred jika aktif). Bimbing tim menuju 3 misi sukses tanpa ketahuan oleh Assassin di akhir permainan!',
-  },
-  PERCIVAL: {
-    id: 'PERCIVAL',
-    name: 'Percival',
-    alignment: 'GOOD',
-    teamLabel: 'Kubu Setia Arthur',
-    badgeColor: 'blue',
-    shortDesc: 'Ksatria pelindung identitas Merlin.',
-    ability:
-      'Kamu dapat melihat siapa Merlin. Namun jika Morgana ikut bermain, kamu akan melihat Merlin dan Morgana sebagai dua kandidat tanpa tahu mana yang asli.',
-  },
-  LOYAL_SERVANT: {
-    id: 'LOYAL_SERVANT',
-    name: 'Pelayan Setia Arthur',
-    alignment: 'GOOD',
-    teamLabel: 'Kubu Setia Arthur',
-    badgeColor: 'blue',
-    shortDesc: 'Ksatria setia kerajaan Camelot.',
-    ability:
-      'Kamu tidak memiliki penglihatan khusus. Amati pola penunjukan tim, cara voting pemain lain, dan argumen diskusi untuk mengungkap penyusup!',
-  },
-  ASSASSIN: {
-    id: 'ASSASSIN',
-    name: 'Assassin',
-    alignment: 'EVIL',
-    teamLabel: 'Kubu Jahat Mordred',
-    badgeColor: 'red',
-    shortDesc: 'Pembunuh bayaran pemburu Merlin.',
-    ability:
-      'Gagalkan misi secara diam-diam bersama rekan Kubu Mordred. Jika Kubu Arthur berhasil menang 3 misi, kamu mendapat satu tembakan terakhir untuk membunuh Merlin dan merebut kemenangan!',
-  },
-  MORGANA: {
-    id: 'MORGANA',
-    name: 'Morgana',
-    alignment: 'EVIL',
-    teamLabel: 'Kubu Jahat Mordred',
-    badgeColor: 'red',
-    shortDesc: 'Penyihir gelap yang menyamar sebagai Merlin.',
-    ability:
-      'Di mata Percival, kamu tampak sama seperti Merlin. Manfaatkan penyamaran ini untuk menipu Percival agar mempercayai tim sabotase!',
-  },
-  MORDRED: {
-    id: 'MORDRED',
-    name: 'Mordred',
-    alignment: 'EVIL',
-    teamLabel: 'Kubu Jahat Mordred',
-    badgeColor: 'red',
-    shortDesc: 'Penguasa kegelapan yang tak kasat mata bagi Merlin.',
-    ability:
-      'Identitas jahatmu tersembunyi sepenuhnya dari penglihatan batin Merlin. Merlin tidak tahu bahwa kamu adalah pengkhianat.',
-  },
-  OBERON: {
-    id: 'OBERON',
-    name: 'Oberon',
-    alignment: 'EVIL',
-    teamLabel: 'Kubu Jahat Mordred',
-    badgeColor: 'red',
-    shortDesc: 'Pengkhianat misterius yang bergerak sendiri.',
-    ability:
-      'Kamu tidak tahu siapa rekan Kubu Mordred lainnya, dan mereka pun tidak tahu bahwa kamu sekutu mereka—namun Merlin tetap dapat melihatmu!',
-  },
-  MINION: {
-    id: 'MINION',
-    name: 'Kaki Tangan Mordred',
-    alignment: 'EVIL',
-    teamLabel: 'Kubu Jahat Mordred',
-    badgeColor: 'red',
-    shortDesc: 'Penyusup setia pasukan Mordred.',
-    ability:
-      'Bekerjasamalah secara diam-diam dengan rekan Kubu Mordred untuk menyabotase 3 misi atau memicu 5 kali penolakan voting berturut-turut.',
-  },
+  10: { good: 6, evil: 4, quests: [3, 4, 4, 5, 5], twoFailsQuest4: true }
 };
 
 const ROLE_ORDER = [
@@ -166,117 +83,195 @@ const ROLE_ORDER = [
   'MORGANA',
   'MORDRED',
   'OBERON',
-  'MINION',
+  'MINION'
 ];
 
-// ============================================================================
-// CERITA NARATIF & BAB UNTUK SETIAP MISI (BAB I - BAB V)
-// ============================================================================
+const ROLE_DEFINITIONS = {
+  MERLIN: {
+    id: 'MERLIN',
+    name: 'Merlin',
+    title: 'Penyihir Agung Camelot',
+    alignment: 'GOOD',
+    teamLabel: 'Kubu Setia Arthur',
+    badgeColor: 'blue',
+    shortDesc: 'Penyihir Agung yang mengetahui siapa saja pengkhianat.',
+    ability:
+      'Kamu mengetahui identitas seluruh anggota Kubu Mordred (kecuali Mordred jika aktif). Bimbing tim menuju 3 misi sukses tanpa ketahuan oleh Assassin di akhir permainan!',
+    strategyTip: 'Jangan terlalu mencolok saat menunjuk pengkhianat agar Assassin tidak menebak identitasmu.'
+  },
+  PERCIVAL: {
+    id: 'PERCIVAL',
+    name: 'Percival',
+    title: 'Pelindung Sang Penyihir',
+    alignment: 'GOOD',
+    teamLabel: 'Kubu Setia Arthur',
+    badgeColor: 'blue',
+    shortDesc: 'Ksatria pelindung identitas Merlin.',
+    ability:
+      'Kamu melihat siapa Merlin. Namun jika Morgana ikut bermain, dia juga terlihat sebagai Merlin di matamu—amati gerak-gerik keduanya dengan cermat!',
+    strategyTip: 'Bantu arahkan tim sesuai petunjuk Merlin asli dan lindungi identitasnya dari kecurigaan.'
+  },
+  LOYAL_SERVANT: {
+    id: 'LOYAL_SERVANT',
+    name: 'Pelayan Setia Arthur',
+    title: 'Ksatria Meja Bundar',
+    alignment: 'GOOD',
+    teamLabel: 'Kubu Setia Arthur',
+    badgeColor: 'blue',
+    shortDesc: 'Ksatria Meja Bundar yang berjuang demi Camelot.',
+    ability:
+      'Kamu tidak memiliki penglihatan khusus. Gunakan intuisi, analisis pola voting, dan perdebatan di meja untuk menyukseskan misi bagi Raja Arthur.',
+    strategyTip: 'Amati siapa yang sering menolak tim sukses atau ikut berada dalam misi yang disabotase.'
+  },
+  ASSASSIN: {
+    id: 'ASSASSIN',
+    name: 'Assassin',
+    title: 'Bayangan Pencabut Nyawa',
+    alignment: 'EVIL',
+    teamLabel: 'Kubu Mordred',
+    badgeColor: 'red',
+    shortDesc: 'Pembunuh bayaran yang mengincar nyawa Merlin.',
+    ability:
+      'Kamu mengenal rekan sesama Kubu Mordred (kecuali Oberon). Jika Kubu Arthur berhasil memenangkan 3 misi, kamu mendapat 1 tembakan terakhir untuk membunuh Merlin dan membalikkan kemenangan!',
+    strategyTip: 'Perhatikan pemain baik yang tampak selalu tahu komposisi tim paling akurat.'
+  },
+  MORGANA: {
+    id: 'MORGANA',
+    name: 'Morgana',
+    title: 'Penyihir Ilusi Kegelapan',
+    alignment: 'EVIL',
+    teamLabel: 'Kubu Mordred',
+    badgeColor: 'red',
+    shortDesc: 'Penyihir kegelapan yang menyamar sebagai Merlin.',
+    ability:
+      'Di mata Percival, kamu muncul persis seperti Merlin. Manfaatkan penyamaran ini untuk menipu Percival agar mempercayai tim yang salah!',
+    strategyTip: 'Berperanlah bijak dan meyakinkan seperti Merlin agar Percival membela timmu.'
+  },
+  MORDRED: {
+    id: 'MORDRED',
+    name: 'Mordred',
+    title: 'Penguasa Kegelapan Tersembunyi',
+    alignment: 'EVIL',
+    teamLabel: 'Kubu Mordred',
+    badgeColor: 'red',
+    shortDesc: 'Pemimpin pengkhianat yang tak terlihat oleh Merlin.',
+    ability:
+      'Identitasmu tersembunyi bahkan dari penglihatan batin Merlin. Susupi tim misi dengan tenang tanpa perlu takut dicurigai langsung oleh sang Penyihir Agung.',
+    strategyTip: 'Manfaatkan kepercayaan Merlin yang mengira dirimu adalah ksatria kubu baik.'
+  },
+  OBERON: {
+    id: 'OBERON',
+    name: 'Oberon',
+    title: 'Roh Rimba Terasing',
+    alignment: 'EVIL',
+    teamLabel: 'Kubu Mordred',
+    badgeColor: 'red',
+    shortDesc: 'Roh kegelapan penyendiri yang tidak mengenal rekannya.',
+    ability:
+      'Kamu anggota Kubu Mordred, namun kamu tidak tahu siapa rekan jahatmu dan mereka pun tidak tahu siapa dirimu. Hanya Merlin yang dapat melihat aura jahatmu.',
+    strategyTip: 'Berhati-hatilah saat menyabotase misi agar tidak bertabrakan dengan rekan jahatmu sendiri.'
+  },
+  MINION: {
+    id: 'MINION',
+    name: 'Kaki Tangan Mordred',
+    title: 'Konspirator Bayangan',
+    alignment: 'EVIL',
+    teamLabel: 'Kubu Mordred',
+    badgeColor: 'red',
+    shortDesc: 'Konspirator rahasia yang bertekad menghancurkan Camelot.',
+    ability:
+      'Kamu mengenal sesama anggota Kubu Mordred (kecuali Oberon). Bekerja samalah secara diam-diam untuk menggagalkan 3 misi atau membuat voting macet 5 kali.',
+    strategyTip: 'Bangun kepercayaan di misi awal atau ciptakan keraguan di antara kubu Arthur.'
+  }
+};
+
 const QUEST_STORIES = {
   1: {
     chapter: 'Bab I',
-    title: 'Gerbang Hutan Brocéliande',
-    subtitle: 'Pengintaian di Perbatasan Kuno Camelot',
+    title: 'Gerbang Kabut Avalon',
     prologue:
-      'Kabut perak menyelimuti gerbang batu kuno Hutan Brocéliande. Raja Arthur mengutus pasukan perintis pertama untuk menyalakan suar penjaga dan mengamankan jalur kuno sebelum bayangan Mordred merayap masuk ke wilayah Camelot.',
+      'Kabut tebal menyelimuti perbatasan Camelot. Pasukan pengintai harus membuka jalur suci menuju Pulau Avalon sebelum bayangan Mordred menyusup.',
     successEpilogue:
-      'Suar biru Camelot menyala terang menembus kabut Brocéliande! Pasukan perintis kembali membawa kabar kemenangan pertama, namun bisikan keraguan mulai tumbuh di antara kursi Meja Bundar.',
+      'Obor suci berhasil dinyalakan! Jalur menuju Avalon terbuka terang bagi pasukan Raja Arthur.',
     failEpilogue:
-      'Suar penjaga padam secara misterius sebelum fajar menyingsing! Jejak belati beracun ditemukan di balik gerbang batu—pengkhianat telah menyusup di dalam barisan kita!',
+      'Api obor dipadamkan secara misterius di tengah kabut! Ada pengkhianat di dalam barisan pengintai.'
   },
   2: {
     chapter: 'Bab II',
-    title: 'Biara Relik Glastonbury',
-    subtitle: 'Penjagaan Pecahan Cawan Suci',
+    title: 'Relik Cawan Suci',
     prologue:
-      'Di bawah cahaya bulan purnama, Biara Glastonbury menyimpan pecahan relik Cawan Suci yang melindungi muruah Camelot. Para ksatria terpilih harus berjaga di altar lilin semalaman agar relik suci itu tidak dicuri kekuatan gelap.',
+      'Di reruntuhan biara kuno, Cawan Suci memancarkan cahaya perak. Tim ekspedisi harus mengamankannya tanpa menarik perhatian penyihir kegelapan.',
     successEpilogue:
-      'Cahaya bulan menyinari altar Glastonbury yang tetap utuh dan suci. Relik kerajaan berhasil diamankan, membuat kubu Mordred terdesak dalam bayang-bayang.',
+      'Cawan Suci berhasil diamankan ke benteng Camelot! Semangat para Ksatria Meja Bundar berkobar.',
     failEpilogue:
-      'Lilin-lilin altar padam diterjang angin sihir hitam! Segel relik Glastonbury retak oleh sabotase dari dalam, memicu saling tuding panas di ruang sidang Camelot.',
+      'Segel biara dihancurkan dari dalam! Relik suci terlepas di tengah kekacauan yang disengaja.'
   },
   3: {
     chapter: 'Bab III',
-    title: 'Jembatan Kabut Danau Avalon',
-    subtitle: 'Ritual Pemurnian Pedang Excalibur',
+    title: 'Jembatan Danau Excalibur',
     prologue:
-      'Jembatan batu melengkung membentang di atas perairan mistis Danau Avalon, tempat pedang legendaris Excalibur ditempa. Tim ekspedisi harus menyeberangi kabut tebal untuk memurnikan bilah cahaya dari kutukan Morgana.',
+      'Untuk melintasi danau bercahaya, para ksatria terpilih harus menjaga keseimbangan mantra di atas jembatan batu tua.',
     successEpilogue:
-      'Air Danau Avalon beriak memantulkan cahaya keemasan! Excalibur kembali bersinar murni di atas jembatan batu, membakar kabut ilusi yang menyelimuti danau.',
+      'Jembatan batu tetap kokoh hingga seluruh rombongan tiba di tepi seberang dengan selamat.',
     failEpilogue:
-      'Kabut ungu pekat menelan jembatan batu Avalon! Seseorang diam-diam menumpahkan ramuan kutukan ke dalam danau suci, meredupkan cahaya Excalibur.',
+      'Mantra pelindung retak dan jembatan runtuh ke danau! Sabotase kembali menggagalkan langkah Arthur.'
   },
   4: {
     chapter: 'Bab IV',
-    title: 'Pengepungan Benteng Tintagel',
-    subtitle: 'Pertahanan Tebing Karang di Tengah Badai',
+    title: 'Benteng Badai Tintagel',
     prologue:
-      'Petir menyambar tebing karang terjal Benteng Tintagel saat pasukan bayangan mengepung tembok luar. Para kesatria terpilih harus mempertahankan gerbang utama hingga bala bantuan kerajaan tiba.',
+      'Petir menyambar menara Tintagel. Pertahanan musuh berlipat ganda sehingga dibutuhkan pengawasan ekstra ketat di dalam tim.',
     successEpilogue:
-      'Di tengah gemuruh badai, panji singa emas tetap berkibar gagah di puncak Benteng Tintagel! Serangan malam pasukan gelap berhasil dipatahkan dengan gemilang.',
+      'Panji biru Camelot berkibar gagah di puncak menara Tintagel di tengah badai!',
     failEpilogue:
-      'Gerbang besi Tintagel terbuka dari dalam di puncak badai petir! Tembok pertahanan jebol akibat pengkhianatan keji, membawa Camelot ke ambang kehancuran.',
+      'Gerbang benteng terbuka dari dalam untuk pasukan kegelapan! Pengkhianatan besar terjadi di Tintagel.'
   },
   5: {
     chapter: 'Bab V',
-    title: 'Pertempuran Terakhir di Bukit Camlann',
-    subtitle: 'Penentuan Nasib Takhta Camelot',
+    title: 'Takhta Terakhir Camelot',
     prologue:
-      'Langit senja memerah darah di atas Bukit Camlann. Seluruh nasib Camelot bergantung pada pasukan terakhir ini—satu langkah keliru akan menenggelamkan kerajaan ke dalam kegelapan abadi.',
+      'Pertempuran penentuan nasib kerajaan! Setiap langkah dan tatapan di meja bundar akan menentukan masa depan Camelot selamanya.',
     successEpilogue:
-      'Mentari fajar memecah langit merah Camlann! Kubu Setia Arthur memenangkan pertempuran terakhir—namun di balik kerumunan, Assassin diam-diam mengarahkan bidikannya mencari sang Merlin...',
+      'Cahaya fajar menyinari Camelot! Pasukan Raja Arthur berhasil mempertahankan takhta suci.',
     failEpilogue:
-      'Langit Camlann runtuh dalam kobaran api dan pengkhianatan! Panji Camelot tumbang di medan laga saat kaki tangan Mordred merebut takhta kerajaan.',
-  },
+      'Kegelapan menelan aula Meja Bundar! Konspirasi Mordred berhasil meruntuhkan kejayaan Camelot.'
+  }
 };
 
-const BOT_NAMES = [
-  'Sir Gawain (Bot)',
-  'Lady Guinevere (Bot)',
-  'Sir Tristan (Bot)',
-  'Sir Kay (Bot)',
-  'Lady Elaine (Bot)',
-  'Sir Bedivere (Bot)',
-  'Sir Galahad (Bot)',
-  'Lady Lynette (Bot)',
-  'Sir Bors (Bot)',
-];
-
 // ============================================================================
-// FUNGSI BANTUAN LOGIKA GAME
+// FUNGSI PEMBANTU PERMAINAN (KODE RUANGAN, ACAK PERAN & PENGLIHATAN BATIN)
 // ============================================================================
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
+  let result = '';
   for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return code;
+  return result;
 }
 
-function shuffleArray(arr) {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
+function shuffleArray(list) {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return copy;
+  return arr;
 }
 
-function assignRolesToPlayers(players, settings) {
-  const count = players.length;
-  const matrix = PLAYER_MATRIX[count];
-  if (!matrix) return players;
+function buildRolePool(playerCount, settings = {}) {
+  const matrix = PLAYER_MATRIX[playerCount] || PLAYER_MATRIX[5];
+  const goodRoles = [];
+  const evilRoles = [];
 
-  const goodRoles = ['MERLIN'];
-  const evilRoles = ['ASSASSIN'];
-
-  if (
-    settings.percivalMorgana &&
-    evilRoles.length < matrix.evil &&
-    goodRoles.length < matrix.good
-  ) {
+  if (settings.merlin) {
+    goodRoles.push('MERLIN');
+    evilRoles.push('ASSASSIN');
+  }
+  if (settings.percival && goodRoles.length < matrix.good) {
     goodRoles.push('PERCIVAL');
+  }
+  if (settings.morgana && evilRoles.length < matrix.evil) {
     evilRoles.push('MORGANA');
   }
   if (settings.mordred && evilRoles.length < matrix.evil) {
@@ -293,3344 +288,509 @@ function assignRolesToPlayers(players, settings) {
     evilRoles.push('MINION');
   }
 
-  const allRoleDeck = shuffleArray([...goodRoles, ...evilRoles]);
-
-  return players.map((player, idx) => {
-    const roleId = allRoleDeck[idx];
-    const roleDef = ROLE_DEFINITIONS[roleId];
-    return {
-      ...player,
-      role: roleId,
-      alignment: roleDef.alignment,
-      readyRole: Boolean(player.isBot),
-    };
-  });
+  return shuffleArray([...goodRoles, ...evilRoles]);
 }
 
-function getSecretVision(me, allPlayers, settings) {
+function computePlayerVision(me, allPlayers = []) {
   if (!me || !me.role) {
-    return { targets: [], label: '', note: '' };
+    return {
+      title: 'Penglihatan Batin',
+      notes: 'Menunggu pembagian peran rahasia...',
+      targets: []
+    };
   }
 
+  const others = allPlayers.filter((p) => p.id !== me.id && p.role);
+  const evilIds = ['ASSASSIN', 'MORGANA', 'MORDRED', 'OBERON', 'MINION'];
+
   if (me.role === 'MERLIN') {
-    const targets = allPlayers.filter(
-      (p) => p.id !== me.id && p.alignment === 'EVIL' && p.role !== 'MORDRED'
+    const visibleEvils = others.filter(
+      (p) => evilIds.includes(p.role) && p.role !== 'MORDRED'
     );
     return {
-      targets,
-      label: 'Terdeteksi sebagai Kubu Mordred',
-      note: settings?.mordred
-        ? 'Waspada: Mordred ikut bermain dan tidak terlihat dalam penglihatanmu!'
-        : 'Jaga rahasiamu! Jangan sampai Assassin menebak identitasmu di akhir laga.',
+      title: 'Penglihatan Penyihir Agung (Merlin)',
+      notes:
+        visibleEvils.length > 0
+          ? 'Aura kegelapan tampak menyelimuti pemain berikut (Mordred tidak terlihat jika aktif):'
+          : 'Tidak ada aura pengkhianat yang terlihat oleh penglihatanmu.',
+      targets: visibleEvils.map((p) => ({
+        id: p.id,
+        name: p.name,
+        roleId: 'MINION',
+        label: 'Kubu Mordred',
+        tone: 'red'
+      }))
     };
   }
 
   if (me.role === 'PERCIVAL') {
-    const targets = allPlayers.filter(
-      (p) => p.id !== me.id && (p.role === 'MERLIN' || p.role === 'MORGANA')
+    const merlinCandidates = others.filter(
+      (p) => p.role === 'MERLIN' || p.role === 'MORGANA'
     );
     return {
-      targets,
-      label: 'Kandidat Merlin',
-      note: settings?.percivalMorgana
-        ? 'Salah satu adalah Merlin asli, dan satunya lagi adalah penyamaran Morgana!'
-        : 'Inilah Merlin yang harus kamu lindungi identitasnya.',
-    };
-  }
-
-  if (me.alignment === 'EVIL' && me.role !== 'OBERON') {
-    const targets = allPlayers.filter(
-      (p) => p.id !== me.id && p.alignment === 'EVIL' && p.role !== 'OBERON'
-    );
-    return {
-      targets,
-      label: 'Rekan Sekutu Kubu Mordred',
-      note: settings?.oberon
-        ? 'Catatan: Oberon adalah sekutumu, namun ia bergerak sendiri dan tidak terlihat di sini.'
-        : 'Koordinasikan sabotase misi secara halus tanpa mencurigakan.',
+      title: 'Penglihatan Pelindung (Percival)',
+      notes:
+        merlinCandidates.length > 1
+          ? 'Dua sosok memancarkan aura Merlin! Salah satunya adalah Merlin asli dan satunya Morgana yang menyamar:'
+          : merlinCandidates.length === 1
+          ? 'Sosok berikut adalah Merlin yang harus kamu lindungi:'
+          : 'Tidak ada Merlin yang terlihat di dalam permainan ini.',
+      targets: merlinCandidates.map((p) => ({
+        id: p.id,
+        name: p.name,
+        roleId: 'MERLIN',
+        label: merlinCandidates.length > 1 ? 'Merlin / Morgana?' : 'Merlin',
+        tone: 'amber'
+      }))
     };
   }
 
   if (me.role === 'OBERON') {
     return {
-      targets: [],
-      label: '',
-      note: 'Kamu bergerak dalam bayang-bayang sendiri. Kamu tidak mengenal rekan Kubu Mordred lainnya, dan mereka pun tidak mengenalmu—namun Merlin bisa melihatmu!',
+      title: 'Kegelapan Sunyi (Oberon)',
+      notes:
+        'Sebagai Oberon, kamu tidak mengetahui siapa rekan Kubu Mordred lainnya, dan mereka pun tidak mengetahui identitasmu.',
+      targets: []
+    };
+  }
+
+  if (evilIds.includes(me.role)) {
+    const fellowEvils = others.filter(
+      (p) => evilIds.includes(p.role) && p.role !== 'OBERON'
+    );
+    return {
+      title: 'Jaringan Konspirasi Mordred',
+      notes:
+        fellowEvils.length > 0
+          ? 'Rekan sesama Kubu Mordred yang bekerja sama denganmu (kecuali Oberon):'
+          : 'Kamu tidak melihat rekan jahat lain yang terbuka.',
+      targets: fellowEvils.map((p) => ({
+        id: p.id,
+        name: p.name,
+        roleId: p.role,
+        label: ROLE_DEFINITIONS[p.role]?.name || 'Kubu Mordred',
+        tone: 'red'
+      }))
     };
   }
 
   return {
-    targets: [],
-    label: '',
-    note: 'Kamu tidak memiliki penglihatan batin. Perhatikan siapa yang terlalu ngotot meloloskan tim gagal!',
+    title: 'Sumpah Ksatria Camelot',
+    notes:
+      'Kamu tidak memiliki penglihatan khusus. Perhatikan riwayat voting dan diskusi untuk menemukan siapa yang setia pada Raja Arthur!',
+    targets: []
   };
 }
 
 // ============================================================================
-// KOMPONEN UTAMA APLIKASI
-// ============================================================================
-export default function App() {
-  // Auth & Reconnection State
-  const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [playerName, setPlayerName] = useState('');
-  const [joinCodeInput, setJoinCodeInput] = useState('');
-  const [activeRoomCode, setActiveRoomCode] = useState(null);
-  const [roomData, setRoomData] = useState(null);
-
-  // UI & Modal States
-  const [loadingAction, setLoadingAction] = useState(false);
-  const [toastMessage, setToastMessage] = useState(null);
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [showPeekModal, setShowPeekModal] = useState(false);
-  const [peekRevealed, setPeekRevealed] = useState(false);
-  const [mainRoleRevealed, setMainRoleRevealed] = useState(false);
-  const [showRulesModal, setShowRulesModal] = useState(false);
-  const [showGrimoireModal, setShowGrimoireModal] = useState(false);
-  const [showLogsDrawer, setShowLogsDrawer] = useState(false);
-  const [selectedAssassinTarget, setSelectedAssassinTarget] = useState(null);
-  const [confirmAssassinate, setConfirmAssassinate] = useState(false);
-
-  const botTimerRef = useRef(null);
-  const resolverLockRef = useRef(false);
-
-  const showToast = (msg, type = 'info') => {
-    setToastMessage({ msg, type });
-  };
-
-  useEffect(() => {
-    if (!toastMessage) return;
-    const t = setTimeout(() => setToastMessage(null), 3500);
-    return () => clearTimeout(t);
-  }, [toastMessage]);
-
-  // 1. Inisialisasi Firebase Auth (RULE 3: Auth wajib sebelum akses Firestore)
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (err) {
-        console.error('Firebase Auth Error:', err);
-        showToast(
-          'Gagal terhubung ke server permainan. Pastikan Anonymous Auth aktif di Firebase.',
-          'error'
-        );
-      }
-    };
-    initAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthReady(true);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Auto-Reconnect jika halaman ponsel tidak sengaja ter-refresh (disimpan di Firestore private user doc)
-  useEffect(() => {
-    if (!user) return;
-    let isMounted = true;
-
-    const restoreSession = async () => {
-      try {
-        const sessionRef = doc(
-          db,
-          'artifacts',
-          appId,
-          'users',
-          user.uid,
-          'avalon_session',
-          'current'
-        );
-        const snap = await getDoc(sessionRef);
-        if (snap.exists() && isMounted) {
-          const data = snap.data();
-          if (data.playerName) setPlayerName(data.playerName);
-          if (data.roomCode) {
-            const roomRef = doc(
-              db,
-              'artifacts',
-              appId,
-              'public',
-              'data',
-              'avalon_rooms',
-              data.roomCode
-            );
-            const roomSnap = await getDoc(roomRef);
-            if (roomSnap.exists()) {
-              const rData = roomSnap.data();
-              const stillInRoom = (rData.players || []).some(
-                (p) => p.id === user.uid
-              );
-              if (stillInRoom) {
-                setActiveRoomCode(data.roomCode);
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Session restore error:', err);
-      }
-    };
-
-    restoreSession();
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
-
-  const saveUserSession = async (uid, code, name) => {
-    try {
-      const sessionRef = doc(
-        db,
-        'artifacts',
-        appId,
-        'users',
-        uid,
-        'avalon_session',
-        'current'
-      );
-      await setDoc(sessionRef, {
-        roomCode: code,
-        playerName: name,
-        updatedAt: Date.now(),
-      });
-    } catch (err) {
-      console.error('Save session error:', err);
-    }
-  };
-
-  // 3. Listener Real-Time Dokumen Ruangan
-  useEffect(() => {
-    if (!user || !activeRoomCode) {
-      setRoomData(null);
-      return;
-    }
-
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      activeRoomCode
-    );
-    const unsubscribe = onSnapshot(
-      roomRef,
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          showToast('Ruangan telah ditutup oleh Host.', 'error');
-          setActiveRoomCode(null);
-          setRoomData(null);
-          saveUserSession(user.uid, null, playerName);
-          return;
-        }
-        const data = snapshot.data();
-        const amIStillInRoom = (data.players || []).some(
-          (p) => p.id === user.uid
-        );
-        if (!amIStillInRoom) {
-          showToast('Kamu telah dikeluarkan dari ruangan.', 'error');
-          setActiveRoomCode(null);
-          setRoomData(null);
-          saveUserSession(user.uid, null, playerName);
-          return;
-        }
-        setRoomData(data);
-      },
-      (error) => {
-        console.error('Room snapshot error:', error);
-        showToast(
-          'Koneksi ruangan terganggu. Mencoba menyambung ulang...',
-          'error'
-        );
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user, activeRoomCode]);
-
-  // Reset reveal state saat fase berubah ke pembagian peran
-  useEffect(() => {
-    if (roomData?.status === 'ROLE_REVEAL') {
-      setMainRoleRevealed(false);
-    }
-    if (roomData?.status !== 'ASSASSINATION') {
-      setSelectedAssassinTarget(null);
-      setConfirmAssassinate(false);
-    }
-  }, [roomData?.status]);
-
-  // Derived Values
-  const me = useMemo(() => {
-    if (!roomData || !user) return null;
-    return roomData.players.find((p) => p.id === user.uid) || null;
-  }, [roomData, user]);
-
-  const isHost = useMemo(() => {
-    if (!roomData || !user) return false;
-    return roomData.hostId === user.uid;
-  }, [roomData, user]);
-
-  // ============================================================================
-  // HOST AUTOMATION: RESOLUSI FASE & AKSI BOT (TES SOLO)
-  // ============================================================================
-  useEffect(() => {
-    if (!user || !roomData || !isHost) return;
-
-    const resolveAndAutomate = async () => {
-      if (resolverLockRef.current) return;
-      const roomRef = doc(
-        db,
-        'artifacts',
-        appId,
-        'public',
-        'data',
-        'avalon_rooms',
-        roomData.roomCode
-      );
-      const players = roomData.players || [];
-      const game = roomData.game || {};
-      const matrix = PLAYER_MATRIX[players.length];
-
-      // A. FASE ROLE_REVEAL -> Cek apakah semua pemain sudah siap
-      if (roomData.status === 'ROLE_REVEAL') {
-        const unreadyBots = players.filter((p) => p.isBot && !p.readyRole);
-        if (unreadyBots.length > 0) {
-          const updatedPlayers = players.map((p) =>
-            p.isBot ? { ...p, readyRole: true } : p
-          );
-          resolverLockRef.current = true;
-          try {
-            await updateDoc(roomRef, {
-              players: updatedPlayers,
-              updatedAt: Date.now(),
-            });
-          } finally {
-            resolverLockRef.current = false;
-          }
-          return;
-        }
-
-        const allReady =
-          players.length >= 5 && players.every((p) => p.readyRole);
-        if (allReady) {
-          resolverLockRef.current = true;
-          try {
-            const firstLeader = players[0];
-            await updateDoc(roomRef, {
-              status: 'TEAM_PROPOSAL',
-              'game.currentQuest': 1,
-              'game.voteTrack': 1,
-              'game.leaderIndex': 0,
-              'game.proposedTeam': [],
-              'game.teamVotes': {},
-              'game.logs': [
-                ...(game.logs || []),
-                {
-                  id: `start_${Date.now()}`,
-                  quest: 1,
-                  type: 'info',
-                  text: `Permainan dimulai! ${firstLeader.name} menjadi Ketua Misi pertama.`,
-                },
-              ],
-              updatedAt: Date.now(),
-            });
-          } finally {
-            resolverLockRef.current = false;
-          }
-        }
-        return;
-      }
-
-      // B. FASE TEAM_PROPOSAL -> Jika Ketua Misi adalah Bot, pilih tim otomatis
-      if (roomData.status === 'TEAM_PROPOSAL' && matrix) {
-        const leader = players[game.leaderIndex || 0];
-        const reqSize = matrix.quests[(game.currentQuest || 1) - 1];
-        if (
-          leader &&
-          leader.isBot &&
-          (game.proposedTeam || []).length !== reqSize
-        ) {
-          resolverLockRef.current = true;
-          try {
-            const team = new Set([leader.id]);
-            const others = shuffleArray(
-              players.filter((p) => p.id !== leader.id)
-            );
-            if (leader.alignment === 'EVIL') {
-              const goodOthers = others.filter((p) => p.alignment === 'GOOD');
-              for (const g of goodOthers) {
-                if (team.size < reqSize) team.add(g.id);
-              }
-            }
-            for (const o of others) {
-              if (team.size < reqSize) team.add(o.id);
-            }
-            const chosenIds = Array.from(team);
-            const chosenNames = chosenIds
-              .map((id) => players.find((p) => p.id === id)?.name)
-              .filter(Boolean)
-              .join(', ');
-
-            await updateDoc(roomRef, {
-              status: 'TEAM_VOTE',
-              'game.proposedTeam': chosenIds,
-              'game.teamVotes': {},
-              'game.logs': [
-                ...(game.logs || []),
-                {
-                  id: `prop_${Date.now()}`,
-                  quest: game.currentQuest,
-                  type: 'info',
-                  text: `Misi ${game.currentQuest} (Usulan #${game.voteTrack}): ${leader.name} mengajukan tim [${chosenNames}].`,
-                },
-              ],
-              updatedAt: Date.now(),
-            });
-          } finally {
-            resolverLockRef.current = false;
-          }
-        }
-        return;
-      }
-
-      // C. FASE TEAM_VOTE -> Bot memberikan suara & resolve jika semua sudah voting
-      if (roomData.status === 'TEAM_VOTE') {
-        const votes = game.teamVotes || {};
-        const pendingBots = players.filter((p) => p.isBot && !votes[p.id]);
-
-        if (pendingBots.length > 0) {
-          resolverLockRef.current = true;
-          try {
-            const patch = { updatedAt: Date.now() };
-            const proposedSet = new Set(game.proposedTeam || []);
-            const evilCountOnTeam = players.filter(
-              (p) => proposedSet.has(p.id) && p.alignment === 'EVIL'
-            ).length;
-
-            pendingBots.forEach((bot) => {
-              let approve = false;
-              if (game.voteTrack === 5) {
-                approve = bot.alignment === 'GOOD' ? true : evilCountOnTeam > 0;
-              } else if (bot.alignment === 'GOOD') {
-                approve = proposedSet.has(bot.id)
-                  ? Math.random() < 0.8
-                  : Math.random() < 0.55;
-              } else {
-                approve =
-                  evilCountOnTeam > 0
-                    ? Math.random() < 0.8
-                    : Math.random() < 0.25;
-              }
-              patch[`game.teamVotes.${bot.id}`] = approve
-                ? 'APPROVE'
-                : 'REJECT';
-            });
-            await updateDoc(roomRef, patch);
-          } finally {
-            resolverLockRef.current = false;
-          }
-          return;
-        }
-
-        // Semua pemain sudah voting -> Hitung hasil!
-        if (Object.keys(votes).length >= players.length && players.length > 0) {
-          resolverLockRef.current = true;
-          try {
-            let approveCount = 0;
-            let rejectCount = 0;
-            players.forEach((p) => {
-              if (votes[p.id] === 'APPROVE') approveCount++;
-              else rejectCount++;
-            });
-
-            const approved = approveCount > rejectCount;
-            const voteSummary = {
-              approved,
-              approveCount,
-              rejectCount,
-              votes: { ...votes },
-              proposalNumber: game.voteTrack,
-              questNumber: game.currentQuest,
-            };
-
-            if (approved) {
-              await updateDoc(roomRef, {
-                status: 'QUEST_EXECUTION',
-                'game.lastVoteResult': voteSummary,
-                'game.questActions': {},
-                'game.logs': [
-                  ...(game.logs || []),
-                  {
-                    id: `vote_ok_${Date.now()}`,
-                    quest: game.currentQuest,
-                    type: 'approve',
-                    text: `Voting Tim DISETUJUI (${approveCount} Setuju vs ${rejectCount} Tolak). Tim berangkat menjalankan Misi ${game.currentQuest}!`,
-                  },
-                ],
-                updatedAt: Date.now(),
-              });
-            } else {
-              // Ditolak! Cek apakah sudah 5 kali berturut-turut
-              if ((game.voteTrack || 1) >= 5) {
-                await updateDoc(roomRef, {
-                  status: 'GAME_OVER',
-                  'game.lastVoteResult': voteSummary,
-                  'game.winner': 'EVIL',
-                  'game.winReason':
-                    '5 usulan tim ditolak berturut-turut! Kerajaan Arthur jatuh ke dalam kekacauan dan Kubu Mordred menang mutlak.',
-                  'game.logs': [
-                    ...(game.logs || []),
-                    {
-                      id: `vote_5fail_${Date.now()}`,
-                      quest: game.currentQuest,
-                      type: 'fail',
-                      text: `Voting Tim ke-5 DITOLAK (${approveCount} Setuju vs ${rejectCount} Tolak). Kubu Mordred menang otomatis!`,
-                    },
-                  ],
-                  updatedAt: Date.now(),
-                });
-              } else {
-                const nextLeaderIndex =
-                  ((game.leaderIndex || 0) + 1) % players.length;
-                const nextLeader = players[nextLeaderIndex];
-                await updateDoc(roomRef, {
-                  status: 'TEAM_PROPOSAL',
-                  'game.lastVoteResult': voteSummary,
-                  'game.voteTrack': (game.voteTrack || 1) + 1,
-                  'game.leaderIndex': nextLeaderIndex,
-                  'game.proposedTeam': [],
-                  'game.teamVotes': {},
-                  'game.logs': [
-                    ...(game.logs || []),
-                    {
-                      id: `vote_rej_${Date.now()}`,
-                      quest: game.currentQuest,
-                      type: 'reject',
-                      text: `Voting Tim DITOLAK (${approveCount} Setuju vs ${rejectCount} Tolak). Penolakan naik ke ${
-                        (game.voteTrack || 1) + 1
-                      }/5. Ketua berikutnya: ${nextLeader.name}.`,
-                    },
-                  ],
-                  updatedAt: Date.now(),
-                });
-              }
-            }
-          } finally {
-            resolverLockRef.current = false;
-          }
-        }
-        return;
-      }
-
-      // D. FASE QUEST_EXECUTION -> Bot anggota tim mengirim kartu misi & resolve hasil misi
-      if (roomData.status === 'QUEST_EXECUTION' && matrix) {
-        const teamIds = game.proposedTeam || [];
-        const actions = game.questActions || {};
-        const pendingTeamBots = players.filter(
-          (p) => p.isBot && teamIds.includes(p.id) && !actions[p.id]
-        );
-
-        if (pendingTeamBots.length > 0) {
-          resolverLockRef.current = true;
-          try {
-            const patch = { updatedAt: Date.now() };
-            pendingTeamBots.forEach((bot) => {
-              if (bot.alignment === 'GOOD') {
-                patch[`game.questActions.${bot.id}`] = 'SUCCESS';
-              } else {
-                // Bot jahat kadang menyamar di Misi 1, lalu menyabotase di misi berikutnya
-                const sabotage =
-                  game.currentQuest === 1 ? Math.random() < 0.6 : true;
-                patch[`game.questActions.${bot.id}`] = sabotage
-                  ? 'FAIL'
-                  : 'SUCCESS';
-              }
-            });
-            await updateDoc(roomRef, patch);
-          } finally {
-            resolverLockRef.current = false;
-          }
-          return;
-        }
-
-        // Semua anggota tim sudah mengirim kartu misi -> Hitung hasil misi!
-        if (
-          teamIds.length > 0 &&
-          Object.keys(actions).length >= teamIds.length
-        ) {
-          resolverLockRef.current = true;
-          try {
-            let successCount = 0;
-            let failCount = 0;
-            teamIds.forEach((id) => {
-              if (actions[id] === 'FAIL') failCount++;
-              else successCount++;
-            });
-
-            const qNum = game.currentQuest || 1;
-            const failsNeeded = matrix.twoFailsQuest4 && qNum === 4 ? 2 : 1;
-            const questSucceeded = failCount < failsNeeded;
-
-            const updatedResults = [
-              ...(game.questResults || [null, null, null, null, null]),
-            ];
-            updatedResults[qNum - 1] = {
-              status: questSucceeded ? 'SUCCESS' : 'FAIL',
-              successCount,
-              failCount,
-              teamIds: [...teamIds],
-            };
-
-            const teamNames = teamIds
-              .map((id) => players.find((p) => p.id === id)?.name)
-              .filter(Boolean);
-
-            const revealData = {
-              questNumber: qNum,
-              status: questSucceeded ? 'SUCCESS' : 'FAIL',
-              successCount,
-              failCount,
-              teamNames,
-            };
-
-            const totalSuccesses = updatedResults.filter(
-              (r) => r?.status === 'SUCCESS'
-            ).length;
-            const totalFails = updatedResults.filter(
-              (r) => r?.status === 'FAIL'
-            ).length;
-
-            const logEntry = {
-              id: `quest_${qNum}_${Date.now()}`,
-              quest: qNum,
-              type: questSucceeded ? 'success' : 'fail',
-              text: `Hasil Misi ${qNum}: ${
-                questSucceeded ? 'SUKSES!' : 'GAGAL DISABOTASE!'
-              } (${successCount} Sukses, ${failCount} Gagal) — Tim: ${teamNames.join(
-                ', '
-              )}.`,
-            };
-
-            if (totalFails >= 3) {
-              await updateDoc(roomRef, {
-                status: 'GAME_OVER',
-                'game.questResults': updatedResults,
-                'game.lastQuestReveal': revealData,
-                'game.winner': 'EVIL',
-                'game.winReason':
-                  'Kubu Mordred berhasil menyabotase 3 misi kerajaan! Kegelapan menyelimuti Camelot.',
-                'game.logs': [...(game.logs || []), logEntry],
-                updatedAt: Date.now(),
-              });
-            } else if (totalSuccesses >= 3) {
-              await updateDoc(roomRef, {
-                status: 'ASSASSINATION',
-                'game.questResults': updatedResults,
-                'game.lastQuestReveal': revealData,
-                'game.logs': [
-                  ...(game.logs || []),
-                  logEntry,
-                  {
-                    id: `assassin_phase_${Date.now()}`,
-                    quest: qNum,
-                    type: 'assassin',
-                    text: '3 Misi berhasil! Assassin kini bersiap membidik siapa Merlin!',
-                  },
-                ],
-                updatedAt: Date.now(),
-              });
-            } else {
-              const nextLeaderIndex =
-                ((game.leaderIndex || 0) + 1) % players.length;
-              const nextLeader = players[nextLeaderIndex];
-              await updateDoc(roomRef, {
-                status: 'TEAM_PROPOSAL',
-                'game.questResults': updatedResults,
-                'game.lastQuestReveal': revealData,
-                'game.currentQuest': qNum + 1,
-                'game.voteTrack': 1,
-                'game.leaderIndex': nextLeaderIndex,
-                'game.proposedTeam': [],
-                'game.teamVotes': {},
-                'game.questActions': {},
-                'game.logs': [
-                  ...(game.logs || []),
-                  logEntry,
-                  {
-                    id: `next_q_${qNum + 1}_${Date.now()}`,
-                    quest: qNum + 1,
-                    type: 'info',
-                    text: `Memasuki Misi ${qNum + 1}. Ketua Misi berikutnya: ${
-                      nextLeader.name
-                    }.`,
-                  },
-                ],
-                updatedAt: Date.now(),
-              });
-            }
-          } finally {
-            resolverLockRef.current = false;
-          }
-        }
-        return;
-      }
-
-      // E. FASE ASSASSINATION -> Jika Assassin adalah Bot, eksekusi setelah jeda dramatis
-      if (roomData.status === 'ASSASSINATION') {
-        const assassin = players.find((p) => p.role === 'ASSASSIN');
-        if (assassin && assassin.isBot && !game.assassinTargetId) {
-          resolverLockRef.current = true;
-          try {
-            const goodCandidates = players.filter(
-              (p) => p.alignment === 'GOOD'
-            );
-            const percivalOrMerlin = goodCandidates.filter(
-              (p) => p.role === 'MERLIN' || p.role === 'PERCIVAL'
-            );
-            const pool =
-              percivalOrMerlin.length > 0 ? percivalOrMerlin : goodCandidates;
-            const target = pool[Math.floor(Math.random() * pool.length)];
-
-            const hitMerlin = target.role === 'MERLIN';
-            await updateDoc(roomRef, {
-              status: 'GAME_OVER',
-              'game.assassinTargetId': target.id,
-              'game.winner': hitMerlin ? 'EVIL' : 'GOOD',
-              'game.winReason': hitMerlin
-                ? `Meskipun 3 misi berhasil, Assassin (${assassin.name}) berhasil menebak dan membunuh Merlin (${target.name})! Kemenangan direbut Kubu Mordred!`
-                : `3 Misi berhasil dan Assassin (${assassin.name}) salah membunuh ${target.name}! Merlin selamat, kemenangan mutlak untuk Kubu Setia Arthur!`,
-              'game.logs': [
-                ...(game.logs || []),
-                {
-                  id: `assassinate_${Date.now()}`,
-                  quest: game.currentQuest,
-                  type: 'assassin',
-                  text: `Assassin (${assassin.name}) mengeksekusi ${
-                    target.name
-                  } (${ROLE_DEFINITIONS[target.role]?.name})!`,
-                },
-              ],
-              updatedAt: Date.now(),
-            });
-          } finally {
-            resolverLockRef.current = false;
-          }
-        }
-      }
-    };
-
-    botTimerRef.current = setTimeout(resolveAndAutomate, 950);
-    return () => {
-      if (botTimerRef.current) clearTimeout(botTimerRef.current);
-    };
-  }, [roomData, isHost, user]);
-
-  // ============================================================================
-  // AKSI PENGGUNA: BUAT RUANGAN, GABUNG, LOBBY, & PERMAINAN
-  // ============================================================================
-  const handleCreateRoom = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    const cleanName = playerName.trim();
-    if (!cleanName) {
-      showToast('Masukkan nama pemain terlebih dahulu!', 'error');
-      return;
-    }
-
-    setLoadingAction(true);
-    try {
-      let code = generateRoomCode();
-      let roomRef = doc(
-        db,
-        'artifacts',
-        appId,
-        'public',
-        'data',
-        'avalon_rooms',
-        code
-      );
-      let existing = await getDoc(roomRef);
-      while (existing.exists()) {
-        code = generateRoomCode();
-        roomRef = doc(
-          db,
-          'artifacts',
-          appId,
-          'public',
-          'data',
-          'avalon_rooms',
-          code
-        );
-        existing = await getDoc(roomRef);
-      }
-
-      const initialRoom = {
-        roomCode: code,
-        hostId: user.uid,
-        status: 'LOBBY',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        settings: {
-          percivalMorgana: true,
-          mordred: false,
-          oberon: false,
-        },
-        players: [
-          {
-            id: user.uid,
-            name: cleanName,
-            isBot: false,
-            seatIndex: 0,
-            role: null,
-            alignment: null,
-            readyRole: false,
-          },
-        ],
-        game: null,
-      };
-
-      await setDoc(roomRef, initialRoom);
-      await saveUserSession(user.uid, code, cleanName);
-      setActiveRoomCode(code);
-      showToast(`Ruangan ${code} berhasil dibuat!`, 'success');
-    } catch (err) {
-      console.error('Create room error:', err);
-      showToast('Gagal membuat ruangan. Coba lagi.', 'error');
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-
-  const handleJoinRoom = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    const cleanName = playerName.trim();
-    const cleanCode = joinCodeInput.trim().toUpperCase();
-
-    if (!cleanName) {
-      showToast('Masukkan nama pemain terlebih dahulu!', 'error');
-      return;
-    }
-    if (cleanCode.length !== 4) {
-      showToast('Kode ruangan harus terdiri dari 4 karakter!', 'error');
-      return;
-    }
-
-    setLoadingAction(true);
-    try {
-      const roomRef = doc(
-        db,
-        'artifacts',
-        appId,
-        'public',
-        'data',
-        'avalon_rooms',
-        cleanCode
-      );
-      const snap = await getDoc(roomRef);
-      if (!snap.exists()) {
-        showToast(`Ruangan "${cleanCode}" tidak ditemukan!`, 'error');
-        setLoadingAction(false);
-        return;
-      }
-
-      const data = snap.data();
-      const existingPlayer = (data.players || []).find(
-        (p) => p.id === user.uid
-      );
-
-      if (existingPlayer) {
-        // Rejoin kursi yang sama
-        const updatedPlayers = data.players.map((p) =>
-          p.id === user.uid ? { ...p, name: cleanName } : p
-        );
-        await updateDoc(roomRef, {
-          players: updatedPlayers,
-          updatedAt: Date.now(),
-        });
-        await saveUserSession(user.uid, cleanCode, cleanName);
-        setActiveRoomCode(cleanCode);
-        showToast(`Berhasil masuk kembali ke ruangan ${cleanCode}!`, 'success');
-        return;
-      }
-
-      if (data.status !== 'LOBBY') {
-        showToast('Permainan di ruangan ini sudah dimulai!', 'error');
-        setLoadingAction(false);
-        return;
-      }
-
-      if ((data.players || []).length >= 10) {
-        showToast('Ruangan sudah penuh (maksimal 10 pemain)!', 'error');
-        setLoadingAction(false);
-        return;
-      }
-
-      const newPlayer = {
-        id: user.uid,
-        name: cleanName,
-        isBot: false,
-        seatIndex: data.players.length,
-        role: null,
-        alignment: null,
-        readyRole: false,
-      };
-
-      await updateDoc(roomRef, {
-        players: [...data.players, newPlayer],
-        updatedAt: Date.now(),
-      });
-      await saveUserSession(user.uid, cleanCode, cleanName);
-      setActiveRoomCode(cleanCode);
-      showToast(`Bergabung ke ruangan ${cleanCode}!`, 'success');
-    } catch (err) {
-      console.error('Join room error:', err);
-      showToast('Gagal bergabung ke ruangan.', 'error');
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-
-  const handleLeaveRoom = async () => {
-    if (!user || !roomData) return;
-    try {
-      const roomRef = doc(
-        db,
-        'artifacts',
-        appId,
-        'public',
-        'data',
-        'avalon_rooms',
-        roomData.roomCode
-      );
-      const remaining = (roomData.players || []).filter(
-        (p) => p.id !== user.uid
-      );
-      const humanRemaining = remaining.filter((p) => !p.isBot);
-
-      if (humanRemaining.length === 0) {
-        await deleteDoc(roomRef);
-      } else {
-        const nextHostId =
-          roomData.hostId === user.uid ? humanRemaining[0].id : roomData.hostId;
-        await updateDoc(roomRef, {
-          hostId: nextHostId,
-          players: remaining,
-          updatedAt: Date.now(),
-        });
-      }
-      await saveUserSession(user.uid, null, playerName);
-      setActiveRoomCode(null);
-      setRoomData(null);
-      showToast('Kamu keluar dari ruangan.', 'info');
-    } catch (err) {
-      console.error('Leave room error:', err);
-      setActiveRoomCode(null);
-      setRoomData(null);
-    }
-  };
-
-  const handleCopyCode = () => {
-    if (!roomData?.roomCode) return;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(roomData.roomCode).catch(() => {});
-    }
-    setCopiedCode(true);
-    showToast(`Kode ruangan ${roomData.roomCode} disalin!`, 'success');
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const handleToggleSetting = async (key) => {
-    if (!isHost || !roomData) return;
-    const currentVal = Boolean(roomData.settings?.[key]);
-    const nextSettings = {
-      ...roomData.settings,
-      [key]: !currentVal,
-    };
-
-    // Validasi jumlah slot Evil jika pemain saat ini 5-6 orang (2 slot Evil: Assassin + maks 1 spesial)
-    const count = Math.max(5, roomData.players.length);
-    const evilSlots = PLAYER_MATRIX[count]?.evil || 2;
-    const requestedEvilSpecials =
-      1 +
-      (nextSettings.percivalMorgana ? 1 : 0) +
-      (nextSettings.mordred ? 1 : 0) +
-      (nextSettings.oberon ? 1 : 0);
-
-    if (!currentVal && requestedEvilSpecials > evilSlots) {
-      showToast(
-        `Slot Kubu Mordred hanya ${evilSlots} untuk ${count} pemain. Tambah pemain atau matikan peran jahat lain.`,
-        'error'
-      );
-      return;
-    }
-
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      settings: nextSettings,
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleAddBot = async () => {
-    if (!isHost || !roomData) return;
-    if (roomData.players.length >= 10) {
-      showToast('Kapasitas maksimal 10 pemain tercapai!', 'error');
-      return;
-    }
-    const usedNames = new Set(roomData.players.map((p) => p.name));
-    const availableName =
-      BOT_NAMES.find((n) => !usedNames.has(n)) ||
-      `Ksatria Bot #${roomData.players.length + 1}`;
-
-    const botPlayer = {
-      id: `bot_${Date.now()}_${Math.floor(Math.random() * 999)}`,
-      name: availableName,
-      isBot: true,
-      seatIndex: roomData.players.length,
-      role: null,
-      alignment: null,
-      readyRole: false,
-    };
-
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      players: [...roomData.players, botPlayer],
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleRemovePlayer = async (targetId) => {
-    if (!isHost || !roomData || targetId === user?.uid) return;
-    const updated = roomData.players.filter((p) => p.id !== targetId);
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      players: updated,
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleStartGame = async () => {
-    if (!isHost || !roomData) return;
-    const count = roomData.players.length;
-    if (count < 5 || count > 10) {
-      showToast('Avalon membutuhkan 5 hingga 10 pemain!', 'error');
-      return;
-    }
-
-    // Cek slot peran jahat agar pas dengan jumlah pemain
-    const matrix = PLAYER_MATRIX[count];
-    const cleanSettings = { ...roomData.settings };
-    let evilNeeded = 1; // Assassin
-    if (cleanSettings.percivalMorgana) {
-      if (evilNeeded + 1 <= matrix.evil) evilNeeded++;
-      else cleanSettings.percivalMorgana = false;
-    }
-    if (cleanSettings.mordred) {
-      if (evilNeeded + 1 <= matrix.evil) evilNeeded++;
-      else cleanSettings.mordred = false;
-    }
-    if (cleanSettings.oberon) {
-      if (evilNeeded + 1 <= matrix.evil) evilNeeded++;
-      else cleanSettings.oberon = false;
-    }
-
-    const randomizedSeats = shuffleArray(roomData.players).map((p, idx) => ({
-      ...p,
-      seatIndex: idx,
-    }));
-    const assignedPlayers = assignRolesToPlayers(
-      randomizedSeats,
-      cleanSettings
-    );
-
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      status: 'ROLE_REVEAL',
-      settings: cleanSettings,
-      players: assignedPlayers,
-      game: {
-        currentQuest: 1,
-        voteTrack: 1,
-        leaderIndex: 0,
-        questResults: [null, null, null, null, null],
-        proposedTeam: [],
-        teamVotes: {},
-        lastVoteResult: null,
-        questActions: {},
-        lastQuestReveal: null,
-        assassinTargetId: null,
-        winner: null,
-        winReason: '',
-        logs: [],
-      },
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleConfirmRoleReady = async () => {
-    if (!user || !roomData || !me) return;
-    const updatedPlayers = roomData.players.map((p) =>
-      p.id === user.uid ? { ...p, readyRole: true } : p
-    );
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      players: updatedPlayers,
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleToggleTeamMember = async (targetPlayerId) => {
-    if (!user || !roomData || roomData.status !== 'TEAM_PROPOSAL') return;
-    const leader = roomData.players[roomData.game?.leaderIndex || 0];
-    if (leader?.id !== user.uid) return;
-
-    const matrix = PLAYER_MATRIX[roomData.players.length];
-    const maxTeam = matrix.quests[(roomData.game?.currentQuest || 1) - 1];
-    const currentTeam = roomData.game?.proposedTeam || [];
-
-    let nextTeam;
-    if (currentTeam.includes(targetPlayerId)) {
-      nextTeam = currentTeam.filter((id) => id !== targetPlayerId);
-    } else {
-      if (currentTeam.length >= maxTeam) {
-        showToast(`Maksimal ${maxTeam} pemain untuk misi ini!`, 'error');
-        return;
-      }
-      nextTeam = [...currentTeam, targetPlayerId];
-    }
-
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      'game.proposedTeam': nextTeam,
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleSubmitTeamProposal = async () => {
-    if (!user || !roomData || roomData.status !== 'TEAM_PROPOSAL') return;
-    const leader = roomData.players[roomData.game?.leaderIndex || 0];
-    if (leader?.id !== user.uid) return;
-
-    const matrix = PLAYER_MATRIX[roomData.players.length];
-    const reqSize = matrix.quests[(roomData.game?.currentQuest || 1) - 1];
-    const proposed = roomData.game?.proposedTeam || [];
-
-    if (proposed.length !== reqSize) {
-      showToast(`Pilih tepat ${reqSize} anggota tim misi!`, 'error');
-      return;
-    }
-
-    const chosenNames = proposed
-      .map((id) => roomData.players.find((p) => p.id === id)?.name)
-      .filter(Boolean)
-      .join(', ');
-
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      status: 'TEAM_VOTE',
-      'game.teamVotes': {},
-      'game.logs': [
-        ...(roomData.game?.logs || []),
-        {
-          id: `prop_${Date.now()}`,
-          quest: roomData.game.currentQuest,
-          type: 'info',
-          text: `Misi ${roomData.game.currentQuest} (Usulan #${roomData.game.voteTrack}): ${leader.name} mengajukan tim [${chosenNames}].`,
-        },
-      ],
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleCastTeamVote = async (choice) => {
-    if (!user || !roomData || roomData.status !== 'TEAM_VOTE') return;
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      [`game.teamVotes.${user.uid}`]: choice,
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleSubmitQuestCard = async (actionChoice) => {
-    if (!user || !roomData || !me || roomData.status !== 'QUEST_EXECUTION')
-      return;
-    if (!(roomData.game?.proposedTeam || []).includes(user.uid)) return;
-    // Keamanan aturan: Kubu Arthur tidak bisa mengirim kartu GAGAL
-    const safeChoice = me.alignment === 'GOOD' ? 'SUCCESS' : actionChoice;
-
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      [`game.questActions.${user.uid}`]: safeChoice,
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleExecuteAssassination = async () => {
-    if (!user || !roomData || !me || roomData.status !== 'ASSASSINATION')
-      return;
-    if (me.role !== 'ASSASSIN' || !selectedAssassinTarget) return;
-
-    const target = roomData.players.find(
-      (p) => p.id === selectedAssassinTarget
-    );
-    if (!target) return;
-
-    const hitMerlin = target.role === 'MERLIN';
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      status: 'GAME_OVER',
-      'game.assassinTargetId': target.id,
-      'game.winner': hitMerlin ? 'EVIL' : 'GOOD',
-      'game.winReason': hitMerlin
-        ? `Meskipun 3 misi berhasil, Assassin (${me.name}) berhasil menebak dan membunuh Merlin (${target.name})! Kemenangan direbut Kubu Mordred!`
-        : `3 Misi berhasil dan Assassin (${me.name}) salah membunuh ${target.name}! Merlin selamat, kemenangan mutlak untuk Kubu Setia Arthur!`,
-      'game.logs': [
-        ...(roomData.game?.logs || []),
-        {
-          id: `assassinate_${Date.now()}`,
-          quest: roomData.game?.currentQuest || 5,
-          type: 'assassin',
-          text: `Assassin (${me.name}) mengeksekusi ${target.name} (${
-            ROLE_DEFINITIONS[target.role]?.name
-          })!`,
-        },
-      ],
-      updatedAt: Date.now(),
-    });
-  };
-
-  const handleRematch = async () => {
-    if (!isHost || !roomData) return;
-    const resetPlayers = roomData.players.map((p) => ({
-      ...p,
-      role: null,
-      alignment: null,
-      readyRole: false,
-    }));
-    const roomRef = doc(
-      db,
-      'artifacts',
-      appId,
-      'public',
-      'data',
-      'avalon_rooms',
-      roomData.roomCode
-    );
-    await updateDoc(roomRef, {
-      status: 'LOBBY',
-      players: resetPlayers,
-      game: null,
-      updatedAt: Date.now(),
-    });
-  };
-
-  // ============================================================================
-  // RENDER: LOADING AUTENTIKASI
-  // ============================================================================
-  if (!authReady) {
-    return (
-      <div className="min-h-screen bg-[#0B1120] text-slate-100 flex flex-col items-center justify-center p-6">
-        <Shield className="w-14 h-14 text-amber-500 animate-pulse mb-4" />
-        <p className="text-lg font-semibold text-amber-400">
-          Menyiapkan Meja Bundar Camelot...
-        </p>
-      </div>
-    );
-  }
-
-  // ============================================================================
-  // RENDER: HALAMAN MASUK LOBI (BUAT / GABUNG RUANGAN)
-  // ============================================================================
-  if (!activeRoomCode || !roomData) {
-    return (
-      <div className="min-h-screen bg-[#0B1120] text-slate-100 flex flex-col justify-between overflow-x-hidden">
-        {/* Notifikasi Toast */}
-        {toastMessage && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
-            <div
-              className={`px-4 py-3 rounded-xl shadow-2xl border flex items-center gap-3 text-sm font-medium ${
-                toastMessage.type === 'error'
-                  ? 'bg-red-950/95 border-red-500 text-red-100'
-                  : toastMessage.type === 'success'
-                  ? 'bg-emerald-950/95 border-emerald-500 text-emerald-100'
-                  : 'bg-slate-900/95 border-amber-500/60 text-amber-100'
-              }`}
-            >
-              <Info className="w-5 h-5 shrink-0" />
-              <span>{toastMessage.msg}</span>
-            </div>
-          </div>
-        )}
-
-        <main className="w-full max-w-md mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
-          {/* Header Lambang Avalon */}
-          <div className="text-center mb-6">
-            <CamelotHeroIllustration />
-            <p className="text-xs uppercase tracking-[0.25em] text-amber-400/90 font-bold mt-4 mb-1">
-              The Resistance
-            </p>
-            <h1 className="text-4xl font-extrabold tracking-tight text-white">
-              AVALON
-            </h1>
-            <p className="text-sm text-slate-400 mt-1.5">
-              Permainan Deduksi Sosial • Voting Rahasia via Ponsel
-            </p>
-          </div>
-
-          {/* Kartu Form Masuk */}
-          <div className="bg-[#1E293B] border border-amber-600/40 rounded-2xl p-5 shadow-2xl space-y-5">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
-                Nama Panggilanmu
-              </label>
-              <input
-                type="text"
-                maxLength={16}
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                placeholder="Contoh: Arthur, Lancelot..."
-                className="w-full px-4 py-3.5 rounded-xl bg-[#0B1120] border border-slate-700 focus:border-amber-500 focus:outline-none text-white text-base font-medium placeholder:text-slate-500"
-              />
-            </div>
-
-            <button
-              onClick={handleCreateRoom}
-              disabled={loadingAction}
-              className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 active:scale-[0.99] text-slate-950 font-extrabold text-base shadow-lg shadow-amber-950/50 transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Crown className="w-5 h-5" />
-              <span>Buat Ruangan Baru</span>
-            </button>
-
-            <div className="relative flex py-1 items-center">
-              <div className="flex-grow border-t border-slate-700" />
-              <span className="shrink mx-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Atau Gabung Ruangan
-              </span>
-              <div className="flex-grow border-t border-slate-700" />
-            </div>
-
-            <form onSubmit={handleJoinRoom} className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  maxLength={4}
-                  value={joinCodeInput}
-                  onChange={(e) =>
-                    setJoinCodeInput(e.target.value.toUpperCase())
-                  }
-                  placeholder="KODE"
-                  className="w-32 text-center tracking-[0.25em] uppercase px-3 py-3.5 rounded-xl bg-[#0B1120] border border-slate-700 focus:border-blue-500 focus:outline-none text-white text-lg font-extrabold placeholder:text-slate-600 placeholder:tracking-normal"
-                />
-                <button
-                  type="submit"
-                  disabled={loadingAction}
-                  className="flex-1 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-bold text-base shadow-lg shadow-blue-950/50 transition flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Users className="w-5 h-5" />
-                  <span>Gabung</span>
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Tombol Kitab Karakter & Panduan Singkat */}
-          <div className="mt-5 grid grid-cols-2 gap-2.5">
-            <button
-              onClick={() => setShowGrimoireModal(true)}
-              className="py-3 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-200 text-xs font-extrabold flex items-center justify-center gap-2 transition"
-            >
-              <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Kitab Karakter</span>
-            </button>
-
-            <button
-              onClick={() => setShowRulesModal(true)}
-              className="py-3 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center gap-2 transition"
-            >
-              <HelpCircle className="w-4 h-4 text-blue-400 shrink-0" />
-              <span>Cara Bermain</span>
-            </button>
-          </div>
-        </main>
-
-        {/* Modal Panduan Singkat & Kitab Karakter */}
-        {showRulesModal && (
-          <RulesGuideModal onClose={() => setShowRulesModal(false)} />
-        )}
-        {showGrimoireModal && (
-          <CharacterGrimoireModal onClose={() => setShowGrimoireModal(false)} />
-        )}
-      </div>
-    );
-  }
-
-  // ============================================================================
-  // RENDER: RUANG TUNGGU (WAITING LOBBY)
-  // ============================================================================
-  if (roomData.status === 'LOBBY') {
-    const players = roomData.players || [];
-    const pCount = players.length;
-    const matrix = PLAYER_MATRIX[Math.min(10, Math.max(5, pCount))];
-
-    return (
-      <div className="min-h-screen bg-[#0B1120] text-slate-100 flex flex-col overflow-x-hidden pb-28">
-        {toastMessage && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
-            <div
-              className={`px-4 py-3 rounded-xl shadow-2xl border flex items-center gap-3 text-sm font-medium ${
-                toastMessage.type === 'error'
-                  ? 'bg-red-950/95 border-red-500 text-red-100'
-                  : toastMessage.type === 'success'
-                  ? 'bg-emerald-950/95 border-emerald-500 text-emerald-100'
-                  : 'bg-slate-900/95 border-amber-500/60 text-amber-100'
-              }`}
-            >
-              <Info className="w-5 h-5 shrink-0" />
-              <span>{toastMessage.msg}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Sticky Top Bar Lobby */}
-        <header className="sticky top-0 z-30 bg-[#0B1120]/95 backdrop-blur border-b border-slate-800 px-4 py-3">
-          <div className="max-w-lg mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Crown className="w-5 h-5 text-amber-400" />
-              <span className="font-bold text-white tracking-wide">
-                Ruang Tunggu
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowGrimoireModal(true)}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Kitab Karakter</span>
-              </button>
-              <button
-                onClick={handleLeaveRoom}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-red-950/70 border border-slate-700 hover:border-red-500/50 text-slate-300 hover:text-red-300 text-xs font-semibold flex items-center gap-1.5 transition"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Keluar</span>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <main className="w-full max-w-lg mx-auto px-4 pt-4 space-y-5">
-          {/* Kartu Kode Ruangan */}
-          <div className="bg-gradient-to-br from-[#1E293B] to-slate-900 border-2 border-amber-500/50 rounded-2xl p-5 text-center shadow-xl">
-            <p className="text-xs uppercase tracking-widest text-amber-400 font-bold mb-1">
-              Bagikan Kode Ruangan ke Teman
-            </p>
-            <div className="flex items-center justify-center gap-3 my-2">
-              <span className="text-4xl sm:text-5xl font-black tracking-[0.22em] text-white font-mono">
-                {roomData.roomCode}
-              </span>
-              <button
-                onClick={handleCopyCode}
-                className="p-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 transition"
-                title="Salin Kode"
-              >
-                {copiedCode ? (
-                  <Check className="w-6 h-6 text-emerald-400" />
-                ) : (
-                  <Copy className="w-6 h-6" />
-                )}
-              </button>
-            </div>
-            <p className="text-xs text-slate-400">
-              Setiap pemain masuk lewat browser HP masing-masing menggunakan
-              kode ini.
-            </p>
-          </div>
-
-          {/* Daftar Pemain Terhubung */}
-          <div className="bg-[#1E293B] border border-slate-700/80 rounded-2xl p-4 shadow-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-                <Users className="w-4 h-4 text-amber-400" />
-                <span>Pemain Terhubung ({pCount}/10)</span>
-              </h2>
-              <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-medium">
-                <span className="text-blue-400 font-bold">
-                  {matrix.good} Baik
-                </span>{' '}
-                vs{' '}
-                <span className="text-red-400 font-bold">
-                  {matrix.evil} Jahat
-                </span>
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              {players.map((p, index) => (
-                <div
-                  key={p.id}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border ${
-                    p.id === user?.uid
-                      ? 'bg-amber-500/10 border-amber-500/40'
-                      : 'bg-[#0B1120]/70 border-slate-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-400 text-xs font-bold flex items-center justify-center shrink-0">
-                      {index + 1}
-                    </span>
-                    <span className="font-semibold text-white truncate">
-                      {p.name}
-                    </span>
-                    {p.id === roomData.hostId && (
-                      <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold uppercase shrink-0">
-                        Host
-                      </span>
-                    )}
-                    {p.id === user?.uid && (
-                      <span className="px-2 py-0.5 rounded bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold uppercase shrink-0">
-                        Kamu
-                      </span>
-                    )}
-                    {p.isBot && (
-                      <span className="px-2 py-0.5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 text-[10px] font-bold uppercase flex items-center gap-1 shrink-0">
-                        <Bot className="w-3 h-3" /> Bot
-                      </span>
-                    )}
-                  </div>
-
-                  {isHost && p.id !== user?.uid && (
-                    <button
-                      onClick={() => handleRemovePlayer(p.id)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/40 transition"
-                      title="Hapus dari ruangan"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {isHost && pCount < 10 && (
-              <button
-                onClick={handleAddBot}
-                className="mt-3 w-full py-2.5 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-dashed border-amber-500/40 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition"
-              >
-                <Bot className="w-4 h-4" />
-                <span>+ Tambah Bot (Tes Solo)</span>
-              </button>
-            )}
-          </div>
-
-          {/* Pengaturan Peran Spesial */}
-          <div className="bg-[#1E293B] border border-slate-700/80 rounded-2xl p-4 shadow-lg space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span>Komposisi Peran Spesial</span>
-              </h2>
-              {!isHost && (
-                <span className="text-[11px] text-slate-400">
-                  Diatur oleh Host
-                </span>
-              )}
-            </div>
-
-            {/* Peran Wajib */}
-            <div className="p-3 rounded-xl bg-[#0B1120]/70 border border-slate-800 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex -space-x-2 shrink-0">
-                  <CharacterPortrait roleId="MERLIN" size="xs" />
-                  <CharacterPortrait roleId="ASSASSIN" size="xs" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white truncate">
-                    Merlin & Assassin
-                  </p>
-                  <p className="text-xs text-slate-400 leading-snug">
-                    Inti permainan Avalon (1 Kubu Arthur, 1 Kubu Mordred)
-                  </p>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold shrink-0">
-                Wajib Aktif
-              </span>
-            </div>
-
-            {/* Toggle Percival & Morgana */}
-            <RoleToggleRow
-              title="Percival & Morgana"
-              subtitle="Percival melihat Merlin, tapi Morgana ikut menyamar sebagai Merlin."
-              badge="1 Baik • 1 Jahat"
-              portraits={['PERCIVAL', 'MORGANA']}
-              enabled={Boolean(roomData.settings?.percivalMorgana)}
-              disabled={!isHost}
-              onToggle={() => handleToggleSetting('percivalMorgana')}
-            />
-
-            {/* Toggle Mordred */}
-            <RoleToggleRow
-              title="Mordred"
-              subtitle="Pemimpin kegelapan yang tersembunyi dari penglihatan batin Merlin."
-              badge="1 Jahat"
-              portraits={['MORDRED']}
-              enabled={Boolean(roomData.settings?.mordred)}
-              disabled={!isHost}
-              onToggle={() => handleToggleSetting('mordred')}
-            />
-
-            {/* Toggle Oberon */}
-            <RoleToggleRow
-              title="Oberon"
-              subtitle="Pengkhianat misterius; tidak saling kenal dengan rekan Kubu Mordred lainnya."
-              badge="1 Jahat"
-              portraits={['OBERON']}
-              enabled={Boolean(roomData.settings?.oberon)}
-              disabled={!isHost}
-              onToggle={() => handleToggleSetting('oberon')}
-            />
-          </div>
-        </main>
-
-        {/* Bottom Sticky Start Button */}
-        <div className="fixed bottom-0 inset-x-0 z-30 bg-[#0B1120]/95 backdrop-blur border-t border-slate-800 p-4">
-          <div className="max-w-lg mx-auto">
-            {isHost ? (
-              <button
-                onClick={handleStartGame}
-                disabled={pCount < 5 || pCount > 10}
-                className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-extrabold text-base shadow-lg transition flex items-center justify-center gap-2"
-              >
-                <Play className="w-5 h-5 fill-current" />
-                <span>
-                  {pCount < 5
-                    ? `Butuh Minimal 5 Pemain (${pCount}/5)`
-                    : `Mulai Permainan (${pCount} Pemain)`}
-                </span>
-              </button>
-            ) : (
-              <div className="w-full py-3.5 px-4 rounded-xl bg-[#1E293B] border border-amber-500/30 text-center text-sm font-semibold text-amber-300">
-                Menunggu Host memulai permainan...
-              </div>
-            )}
-          </div>
-        </div>
-
-        {showGrimoireModal && (
-          <CharacterGrimoireModal onClose={() => setShowGrimoireModal(false)} />
-        )}
-      </div>
-    );
-  }
-
-  // ============================================================================
-  // RENDER: PERMAINAN AKTIF (ROLE_REVEAL, PROPOSAL, VOTE, QUEST, ASSASSIN, END)
-  // ============================================================================
-  const players = roomData.players || [];
-  const game = roomData.game || {};
-  const matrix = PLAYER_MATRIX[players.length] || PLAYER_MATRIX[5];
-  const currentQuest = game.currentQuest || 1;
-  const requiredTeamSize = matrix.quests[currentQuest - 1] || 2;
-  const leader = players[game.leaderIndex || 0] || players[0];
-  const isLeader = leader?.id === user?.uid;
-  const myRoleDef = me?.role ? ROLE_DEFINITIONS[me.role] : null;
-  const myVision = getSecretVision(me, players, roomData.settings);
-
-  return (
-    <div className="min-h-screen bg-[#0B1120] text-slate-100 flex flex-col overflow-x-hidden pb-16">
-      {/* Notifikasi Toast */}
-      {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md">
-          <div
-            className={`px-4 py-3 rounded-xl shadow-2xl border flex items-center gap-3 text-sm font-medium ${
-              toastMessage.type === 'error'
-                ? 'bg-red-950/95 border-red-500 text-red-100'
-                : toastMessage.type === 'success'
-                ? 'bg-emerald-950/95 border-emerald-500 text-emerald-100'
-                : 'bg-slate-900/95 border-amber-500/60 text-amber-100'
-            }`}
-          >
-            <Info className="w-5 h-5 shrink-0" />
-            <span>{toastMessage.msg}</span>
-          </div>
-        </div>
-      )}
-
-      {/* STICKY HEADER: KODE RUANGAN, NAMA PEMAIN & TOMBOL INTIP PERAN */}
-      <header className="sticky top-0 z-30 bg-[#0B1120]/95 backdrop-blur border-b border-amber-600/30 px-3 py-2.5 shadow-md">
-        <div className="max-w-lg mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-400 font-mono font-extrabold text-xs shrink-0">
-              {roomData.roomCode}
-            </span>
-            <div className="truncate">
-              <p className="text-xs font-bold text-white truncate">
-                {me?.name}
-              </p>
-              <p className="text-[10px] text-slate-400 truncate">
-                Ketua:{' '}
-                <span className="text-amber-300 font-semibold">
-                  {leader?.name}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={() => setShowGrimoireModal(true)}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 transition"
-              title="Kitab Karakter"
-            >
-              <BookOpen className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setShowLogsDrawer(true)}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition"
-              title="Riwayat Pertandingan"
-            >
-              <ScrollText className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                setPeekRevealed(false);
-                setShowPeekModal(true);
-              }}
-              className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shadow transition"
-            >
-              <Eye className="w-4 h-4" />
-              <span>Intip Peran</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="w-full max-w-lg mx-auto px-3.5 pt-3.5 space-y-4">
-        {/* PAPAN 5 PERISAI MISI & TRACKER PENOLAKAN VOTING (SELALU TERLIHAT) */}
-        {roomData.status !== 'ROLE_REVEAL' && (
-          <section className="bg-[#1E293B] border border-amber-600/40 rounded-2xl p-3.5 shadow-xl space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
-                Papan Misi Camelot ({players.length} Pemain)
-              </span>
-              <span className="text-[11px] text-slate-400">
-                <span className="text-blue-400 font-bold">
-                  {matrix.good} Baik
-                </span>{' '}
-                •{' '}
-                <span className="text-red-400 font-bold">
-                  {matrix.evil} Jahat
-                </span>
-              </span>
-            </div>
-
-            {/* 5 Perisai Misi */}
-            <div className="grid grid-cols-5 gap-2">
-              {[1, 2, 3, 4, 5].map((qNum) => {
-                const res = (game.questResults || [])[qNum - 1];
-                const isCurrent =
-                  qNum === currentQuest &&
-                  roomData.status !== 'ASSASSINATION' &&
-                  roomData.status !== 'GAME_OVER';
-                const qSize = matrix.quests[qNum - 1];
-                const needsTwoFails = matrix.twoFailsQuest4 && qNum === 4;
-
-                let shieldStyle =
-                  'bg-[#0B1120] border-slate-700 text-slate-300';
-                if (res?.status === 'SUCCESS') {
-                  shieldStyle =
-                    'bg-blue-600/25 border-blue-500 text-blue-200 shadow-inner shadow-blue-500/20';
-                } else if (res?.status === 'FAIL') {
-                  shieldStyle =
-                    'bg-red-600/25 border-red-500 text-red-200 shadow-inner shadow-red-500/20';
-                } else if (isCurrent) {
-                  shieldStyle =
-                    'bg-amber-500/15 border-amber-400 text-amber-200 ring-2 ring-amber-400/50';
-                }
-
-                return (
-                  <div
-                    key={qNum}
-                    className={`rounded-xl border p-2 flex flex-col items-center justify-center text-center relative transition ${shieldStyle}`}
-                  >
-                    <span className="text-[10px] font-bold uppercase opacity-80">
-                      Misi {qNum}
-                    </span>
-                    {res?.status === 'SUCCESS' ? (
-                      <ShieldCheck className="w-6 h-6 text-blue-400 my-0.5" />
-                    ) : res?.status === 'FAIL' ? (
-                      <ShieldAlert className="w-6 h-6 text-red-400 my-0.5" />
-                    ) : (
-                      <span className="text-lg font-black leading-tight my-0.5">
-                        {qSize}
-                      </span>
-                    )}
-                    <span className="text-[10px] font-semibold">
-                      {res
-                        ? `S:${res.successCount} G:${res.failCount}`
-                        : `${qSize} Org`}
-                    </span>
-                    {needsTwoFails && !res && (
-                      <span className="mt-0.5 px-1 py-0.2 rounded bg-red-500/20 border border-red-500/40 text-red-300 text-[8px] font-extrabold leading-tight">
-                        2 Gagal
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Tracker Penolakan Tim (1 - 5) */}
-            <div className="pt-2 border-t border-slate-700/80 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-slate-300">
-                Penolakan Tim Beruntun:
-              </span>
-              <div className="flex items-center gap-1.5">
-                {[1, 2, 3, 4, 5].map((step) => {
-                  const active = step === (game.voteTrack || 1);
-                  const passed = step < (game.voteTrack || 1);
-                  const isFifth = step === 5;
-                  return (
-                    <div
-                      key={step}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold border transition ${
-                        active
-                          ? isFifth
-                            ? 'bg-red-600 border-red-400 text-white animate-pulse'
-                            : 'bg-amber-500 border-amber-300 text-slate-950'
-                          : passed
-                          ? 'bg-red-950/80 border-red-700 text-red-400'
-                          : 'bg-[#0B1120] border-slate-700 text-slate-500'
-                      }`}
-                    >
-                      {isFifth ? <Skull className="w-3.5 h-3.5" /> : step}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            {(game.voteTrack || 1) === 5 &&
-              roomData.status === 'TEAM_PROPOSAL' && (
-                <div className="px-3 py-2 rounded-lg bg-red-950/80 border border-red-500/60 text-red-200 text-xs font-semibold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-                  <span>
-                    Usulan ke-5! Jika tim ini ditolak lagi, Kubu Mordred
-                    langsung menang!
-                  </span>
-                </div>
-              )}
-          </section>
-        )}
-
-        {/* ====================================================================
-            FASE A: PEMBAGIAN PERAN RAHASIA (ROLE_REVEAL)
-            ==================================================================== */}
-        {roomData.status === 'ROLE_REVEAL' && myRoleDef && (
-          <section className="space-y-4">
-            <div className="text-center">
-              <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold uppercase tracking-wider">
-                Fase Pembagian Peran
-              </span>
-              <h2 className="text-xl font-extrabold text-white mt-2">
-                Identitas Rahasiamu Telah Tiba
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Pastikan layar ponselmu tidak diintip pemain di sebelahmu.
-              </p>
-            </div>
-
-            {!mainRoleRevealed ? (
-              <button
-                onClick={() => setMainRoleRevealed(true)}
-                className="w-full py-14 px-6 rounded-2xl bg-gradient-to-b from-[#1E293B] to-slate-900 border-2 border-dashed border-amber-500/60 hover:border-amber-400 flex flex-col items-center justify-center text-center shadow-2xl transition active:scale-[0.99]"
-              >
-                <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/50 flex items-center justify-center mb-4">
-                  <Eye className="w-8 h-8 text-amber-400" />
-                </div>
-                <p className="text-lg font-extrabold text-white">
-                  Ketuk untuk Membuka Kartu Peran
-                </p>
-                <p className="text-xs text-slate-400 mt-1.5 max-w-xs">
-                  Lihat kubu, kemampuan khusus, dan siapa saja yang terdeteksi
-                  oleh penglihatanmu.
-                </p>
-              </button>
-            ) : (
-              <div
-                className={`rounded-2xl border-2 p-5 shadow-2xl space-y-4 ${
-                  myRoleDef.alignment === 'GOOD'
-                    ? 'bg-gradient-to-b from-blue-950/60 to-[#1E293B] border-blue-500'
-                    : 'bg-gradient-to-b from-red-950/60 to-[#1E293B] border-red-500'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3.5">
-                    <CharacterPortrait roleId={me.role} size="lg" />
-                    <div>
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider mb-1 ${
-                          myRoleDef.alignment === 'GOOD'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-red-600 text-white'
-                        }`}
-                      >
-                        {myRoleDef.teamLabel}
-                      </span>
-                      <h3 className="text-2xl font-black text-white leading-tight">
-                        {myRoleDef.name}
-                      </h3>
-                      <p className="text-xs text-slate-300 mt-0.5">
-                        {myRoleDef.shortDesc}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setMainRoleRevealed(false)}
-                    className="p-2 rounded-xl bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white shrink-0"
-                    title="Sembunyikan Kartu"
-                  >
-                    <EyeOff className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <p className="text-sm text-slate-200 leading-relaxed bg-[#0B1120]/60 p-3.5 rounded-xl border border-slate-700/70">
-                  {myRoleDef.ability}
-                </p>
-
-                {/* Penglihatan Rahasia */}
-                <div className="bg-[#0B1120]/80 rounded-xl p-3.5 border border-amber-500/30 space-y-2.5">
-                  <p className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                    <Eye className="w-4 h-4" />
-                    <span>Penglihatan Batin Rahasia</span>
-                  </p>
-
-                  {myVision.targets.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-xs text-slate-300">
-                        {myVision.label}:
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {myVision.targets.map((t) => {
-                          const targetRoleDef = t.role
-                            ? ROLE_DEFINITIONS[t.role]
-                            : null;
-                          return (
-                            <div
-                              key={t.id}
-                              className={`flex items-center gap-2.5 p-2 rounded-xl border ${
-                                myRoleDef.alignment === 'EVIL'
-                                  ? 'bg-red-950/90 border-red-500 text-red-100'
-                                  : me.role === 'MERLIN'
-                                  ? 'bg-red-950/90 border-red-500 text-red-100'
-                                  : 'bg-amber-950/90 border-amber-500 text-amber-100'
-                              }`}
-                            >
-                              <CharacterPortrait
-                                roleId={
-                                  me.role === 'PERCIVAL'
-                                    ? 'MERLIN'
-                                    : me.role === 'MERLIN'
-                                    ? 'MINION'
-                                    : t.role
-                                }
-                                size="xs"
-                              />
-                              <div className="min-w-0">
-                                <p className="text-sm font-extrabold truncate">
-                                  {t.name}
-                                </p>
-                                <p className="text-[10px] opacity-85 truncate">
-                                  {me.role === 'PERCIVAL'
-                                    ? 'Kandidat Merlin / Morgana'
-                                    : me.role === 'MERLIN'
-                                    ? 'Kubu Jahat Mordred'
-                                    : targetRoleDef?.name || 'Sekutu Mordred'}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    {myVision.note}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Tombol Konfirmasi Siap */}
-            <div className="bg-[#1E293B] border border-slate-700 rounded-2xl p-4 space-y-3">
-              {!me?.readyRole ? (
-                <button
-                  onClick={handleConfirmRoleReady}
-                  className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-extrabold text-base shadow-lg transition flex items-center justify-center gap-2"
-                >
-                  <Check className="w-5 h-5" />
-                  <span>Saya Siap Bermain</span>
-                </button>
-              ) : (
-                <div className="py-3 px-4 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-emerald-200 text-sm font-bold text-center">
-                  Kamu sudah siap! Menunggu pemain lain (
-                  {players.filter((p) => p.readyRole).length}/{players.length}
-                  )...
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-1.5 justify-center">
-                {players.map((p) => (
-                  <span
-                    key={p.id}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                      p.readyRole
-                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                        : 'bg-slate-800 border-slate-700 text-slate-400'
-                    }`}
-                  >
-                    {p.readyRole ? '✓ ' : '⏳ '}
-                    {p.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* KARTU EPILOG CERITA MISI TERAKHIR & PEMBUKAAN KARTU MISI */}
-        {game.lastQuestReveal &&
-          (roomData.status === 'TEAM_PROPOSAL' ||
-            roomData.status === 'ASSASSINATION' ||
-            roomData.status === 'GAME_OVER') && (
-            <QuestEpilogueCard reveal={game.lastQuestReveal} />
-          )}
-
-        {/* BANNER HASIL VOTING TIM TERAKHIR (PUBLIK UNTUK SEMUA PEMAIN) */}
-        {game.lastVoteResult &&
-          (roomData.status === 'TEAM_PROPOSAL' ||
-            roomData.status === 'QUEST_EXECUTION') && (
-            <LastVoteSummaryCard
-              result={game.lastVoteResult}
-              players={players}
-            />
-          )}
-
-        {/* KARTU ILUSTRASI & PROLOG CERITA BAB MISI SAAT INI */}
-        {(roomData.status === 'TEAM_PROPOSAL' ||
-          roomData.status === 'TEAM_VOTE' ||
-          roomData.status === 'QUEST_EXECUTION') && (
-          <QuestChapterCard
-            questNumber={currentQuest}
-            needsTwoFails={matrix.twoFailsQuest4 && currentQuest === 4}
-          />
-        )}
-
-        {/* ====================================================================
-            FASE B: PENUNJUKAN TIM MISI (TEAM_PROPOSAL)
-            ==================================================================== */}
-        {roomData.status === 'TEAM_PROPOSAL' && (
-          <section className="bg-[#1E293B] border border-amber-600/40 rounded-2xl p-4 shadow-xl space-y-4">
-            <div className="border-b border-slate-700/80 pb-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-                  Misi {currentQuest} • Penunjukan Tim
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
-                  Butuh {requiredTeamSize} Pemain
-                </span>
-              </div>
-              <h2 className="text-lg font-extrabold text-white mt-1">
-                {isLeader
-                  ? `Giliranmu! Pilih ${requiredTeamSize} Anggota Tim Misi`
-                  : `${leader?.name} sedang memilih ${requiredTeamSize} anggota tim...`}
-              </h2>
-            </div>
-
-            <div className="space-y-2">
-              {players.map((p) => {
-                const isSelected = (game.proposedTeam || []).includes(p.id);
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    disabled={!isLeader}
-                    onClick={() => handleToggleTeamMember(p.id)}
-                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border text-left transition ${
-                      isSelected
-                        ? 'bg-amber-500/20 border-amber-400 text-white shadow-md shadow-amber-950/30'
-                        : 'bg-[#0B1120]/80 border-slate-800 text-slate-300 hover:border-slate-700'
-                    } ${!isLeader ? 'cursor-default' : 'active:scale-[0.99]'}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-6 h-6 rounded-lg border flex items-center justify-center transition ${
-                          isSelected
-                            ? 'bg-amber-500 border-amber-300 text-slate-950'
-                            : 'bg-slate-900 border-slate-600'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm text-white flex items-center gap-2">
-                          <span>{p.name}</span>
-                          {p.id === leader?.id && (
-                            <Crown className="w-3.5 h-3.5 text-amber-400 inline" />
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    {isSelected && (
-                      <span className="px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 text-[11px] font-extrabold uppercase">
-                        Terpilih
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {isLeader ? (
-              <button
-                onClick={handleSubmitTeamProposal}
-                disabled={(game.proposedTeam || []).length !== requiredTeamSize}
-                className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-slate-950 font-extrabold text-base shadow-lg transition flex items-center justify-center gap-2"
-              >
-                <Swords className="w-5 h-5" />
-                <span>
-                  Ajukan Tim Misi ({(game.proposedTeam || []).length}/
-                  {requiredTeamSize})
-                </span>
-              </button>
-            ) : (
-              <div className="p-3 rounded-xl bg-[#0B1120]/80 border border-slate-800 text-center text-xs text-slate-400">
-                Diskusikan di meja bundar! Pilihan Ketua Misi tampil secara
-                langsung di atas.
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ====================================================================
-            FASE C: VOTING TIM SERENTAK DI PONSEL MASING-MASING (TEAM_VOTE)
-            ==================================================================== */}
-        {roomData.status === 'TEAM_VOTE' && (
-          <section className="bg-[#1E293B] border border-amber-600/40 rounded-2xl p-4 shadow-xl space-y-4">
-            <div>
-              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-                Voting Tim Misi {currentQuest} (Usulan #{game.voteTrack || 1})
-              </span>
-              <h2 className="text-lg font-extrabold text-white mt-0.5">
-                Apakah Kamu Menyetujui Tim Ini?
-              </h2>
-            </div>
-
-            {/* Daftar Anggota Tim yang Diajukan */}
-            <div className="bg-[#0B1120] border border-amber-500/30 rounded-xl p-3.5">
-              <p className="text-xs text-slate-400 mb-2">
-                Tim yang diajukan oleh{' '}
-                <strong className="text-amber-300">{leader?.name}</strong>:
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {(game.proposedTeam || []).map((id) => {
-                  const member = players.find((p) => p.id === id);
-                  return (
-                    <span
-                      key={id}
-                      className="px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-200 text-sm font-extrabold flex items-center gap-1.5"
-                    >
-                      <Shield className="w-3.5 h-3.5 text-amber-400" />
-                      {member?.name}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Tombol Voting Rahasia */}
-            {(() => {
-              const myVote = (game.teamVotes || {})[user?.uid];
-              return (
-                <div className="space-y-2.5">
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => handleCastTeamVote('APPROVE')}
-                      className={`py-4 px-3 rounded-xl border-2 font-extrabold text-base flex flex-col items-center justify-center gap-1.5 transition active:scale-[0.98] ${
-                        myVote === 'APPROVE'
-                          ? 'bg-blue-600 border-blue-300 text-white shadow-lg shadow-blue-900/50'
-                          : 'bg-blue-950/40 hover:bg-blue-900/50 border-blue-500/50 text-blue-200'
-                      }`}
-                    >
-                      <ThumbsUp className="w-6 h-6" />
-                      <span>SETUJU</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleCastTeamVote('REJECT')}
-                      className={`py-4 px-3 rounded-xl border-2 font-extrabold text-base flex flex-col items-center justify-center gap-1.5 transition active:scale-[0.98] ${
-                        myVote === 'REJECT'
-                          ? 'bg-red-600 border-red-300 text-white shadow-lg shadow-red-900/50'
-                          : 'bg-red-950/40 hover:bg-red-900/50 border-red-500/50 text-red-200'
-                      }`}
-                    >
-                      <ThumbsDown className="w-6 h-6" />
-                      <span>TOLAK</span>
-                    </button>
-                  </div>
-
-                  {myVote && (
-                    <p className="text-center text-xs font-semibold text-emerald-400">
-                      Suara rahasiamu terkunci:{' '}
-                      <strong>
-                        {myVote === 'APPROVE' ? 'SETUJU' : 'TOLAK'}
-                      </strong>{' '}
-                      (bisa diubah sebelum semua selesai)
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Status Siapa yang Sudah Memilih */}
-            <div className="pt-2 border-t border-slate-700/80">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                Status Voting ({Object.keys(game.teamVotes || {}).length}/
-                {players.length} Pemain)
-              </p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {players.map((p) => {
-                  const hasVoted = Boolean((game.teamVotes || {})[p.id]);
-                  return (
-                    <div
-                      key={p.id}
-                      className={`px-3 py-2 rounded-lg border text-xs flex items-center justify-between ${
-                        hasVoted
-                          ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
-                          : 'bg-[#0B1120]/70 border-slate-800 text-slate-400'
-                      }`}
-                    >
-                      <span className="truncate font-medium">{p.name}</span>
-                      <span className="font-bold shrink-0 ml-1">
-                        {hasVoted ? '✓ Siap' : '...'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ====================================================================
-            FASE D: EKSEKUSI MISI (QUEST_EXECUTION)
-            ==================================================================== */}
-        {roomData.status === 'QUEST_EXECUTION' && (
-          <section className="bg-[#1E293B] border border-amber-600/40 rounded-2xl p-4 shadow-xl space-y-4">
-            <div>
-              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-                Eksekusi Misi {currentQuest}
-              </span>
-              <h2 className="text-lg font-extrabold text-white mt-0.5">
-                {(game.proposedTeam || []).includes(user?.uid)
-                  ? 'Kamu Anggota Tim Misi! Pilih Aksi Rahasiamu'
-                  : 'Tim Misi Sedang Menjalankan Tugas...'}
-              </h2>
-            </div>
-
-            {(game.proposedTeam || []).includes(user?.uid) ? (
-              (() => {
-                const myAction = (game.questActions || {})[user?.uid];
-                return myAction ? (
-                  <div className="p-5 rounded-xl bg-emerald-950/50 border border-emerald-500/50 text-center space-y-1">
-                    <Check className="w-8 h-8 text-emerald-400 mx-auto" />
-                    <p className="font-extrabold text-white">
-                      Kartu Misi Terkirim!
-                    </p>
-                    <p className="text-xs text-slate-300">
-                      Menunggu anggota tim misi lainnya menyelesaikan pilihan
-                      mereka...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Pilihanmu akan diacak secara anonim sebelum hasil misi
-                      diungkapkan ke meja bundar.
-                    </p>
-
-                    <div
-                      className={`grid gap-3 ${
-                        me?.alignment === 'EVIL' ? 'grid-cols-2' : 'grid-cols-1'
-                      }`}
-                    >
-                      <button
-                        onClick={() => handleSubmitQuestCard('SUCCESS')}
-                        className="py-5 px-4 rounded-xl bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 border-2 border-blue-400 text-white font-extrabold text-base shadow-lg shadow-blue-950/60 flex flex-col items-center justify-center gap-2 transition active:scale-[0.98]"
-                      >
-                        <ShieldCheck className="w-8 h-8" />
-                        <span>SUKSESKAN MISI</span>
-                      </button>
-
-                      {me?.alignment === 'EVIL' && (
-                        <button
-                          onClick={() => handleSubmitQuestCard('FAIL')}
-                          className="py-5 px-4 rounded-xl bg-gradient-to-b from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 border-2 border-red-400 text-white font-extrabold text-base shadow-lg shadow-red-950/60 flex flex-col items-center justify-center gap-2 transition active:scale-[0.98]"
-                        >
-                          <ShieldAlert className="w-8 h-8" />
-                          <span>SABOTASE / GAGAL</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {me?.alignment === 'GOOD' && (
-                      <p className="text-[11px] text-blue-300/80 text-center">
-                        Sebagai Kubu Setia Arthur, kamu hanya dapat mengirim
-                        kartu Sukses.
-                      </p>
-                    )}
-                  </div>
-                );
-              })()
-            ) : (
-              <div className="p-5 rounded-xl bg-[#0B1120] border border-slate-800 text-center space-y-2">
-                <Swords className="w-8 h-8 text-amber-400 mx-auto animate-pulse" />
-                <p className="text-sm font-bold text-slate-200">
-                  Menahan napas menunggu hasil dari tim misi...
-                </p>
-                <p className="text-xs text-slate-400">
-                  Anggota tim sedang memilih kartu Sukses atau Sabotase di
-                  ponsel mereka.
-                </p>
-              </div>
-            )}
-
-            {/* Status Anggota Tim Misi */}
-            <div className="pt-2 border-t border-slate-700/80 space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Progres Tim Misi ({Object.keys(game.questActions || {}).length}/
-                {(game.proposedTeam || []).length})
-              </p>
-              {(game.proposedTeam || []).map((id) => {
-                const member = players.find((p) => p.id === id);
-                const done = Boolean((game.questActions || {})[id]);
-                return (
-                  <div
-                    key={id}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#0B1120]/70 border border-slate-800 text-xs"
-                  >
-                    <span className="font-bold text-white">{member?.name}</span>
-                    <span
-                      className={
-                        done ? 'text-emerald-400 font-bold' : 'text-amber-400'
-                      }
-                    >
-                      {done ? '✓ Kartu Terkirim' : 'Sedang Memilih...'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* ====================================================================
-            FASE E: MISI PEMBUNUHAN ASSASSIN (ASSASSINATION)
-            ==================================================================== */}
-        {roomData.status === 'ASSASSINATION' && (
-          <section className="bg-gradient-to-b from-red-950/60 to-[#1E293B] border-2 border-red-500 rounded-2xl p-4 shadow-2xl space-y-4">
-            <div className="flex flex-col items-center text-center space-y-2">
-              <CharacterPortrait roleId="ASSASSIN" size="md" />
-              <span className="px-3 py-1 rounded-full bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider">
-                Serangan Terakhir Kubu Mordred
-              </span>
-              <h2 className="text-xl font-black text-white">
-                3 Misi Berhasil! Saatnya Assassin Beraksi
-              </h2>
-              <p className="text-xs text-slate-300">
-                Jika Assassin berhasil menebak siapa <strong>Merlin</strong>,
-                kemenangan Kubu Arthur langsung direbut oleh Kubu Mordred!
-              </p>
-            </div>
-
-            {me?.role === 'ASSASSIN' ? (
-              <div className="space-y-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                  Pilih 1 Pemain Kubu Arthur untuk Dieksekusi:
-                </p>
-                <div className="space-y-2">
-                  {players
-                    .filter((p) => p.alignment === 'GOOD')
-                    .map((p) => {
-                      const isTarget = selectedAssassinTarget === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => {
-                            setSelectedAssassinTarget(p.id);
-                            setConfirmAssassinate(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition ${
-                            isTarget
-                              ? 'bg-red-600/30 border-red-400 text-white shadow-lg'
-                              : 'bg-[#0B1120]/80 border-slate-800 text-slate-200 hover:border-red-500/50'
-                          }`}
-                        >
-                          <span className="font-bold text-sm">{p.name}</span>
-                          {isTarget && (
-                            <span className="px-2.5 py-0.5 rounded bg-red-600 text-white text-xs font-extrabold flex items-center gap-1">
-                              <Skull className="w-3.5 h-3.5" /> Target
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                </div>
-
-                {selectedAssassinTarget && !confirmAssassinate && (
-                  <button
-                    onClick={() => setConfirmAssassinate(true)}
-                    className="w-full py-4 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-base shadow-lg flex items-center justify-center gap-2"
-                  >
-                    <Skull className="w-5 h-5" />
-                    <span>
-                      Eksekusi{' '}
-                      {
-                        players.find((p) => p.id === selectedAssassinTarget)
-                          ?.name
-                      }
-                    </span>
-                  </button>
-                )}
-
-                {selectedAssassinTarget && confirmAssassinate && (
-                  <div className="p-3.5 rounded-xl bg-red-950 border border-red-400 space-y-2.5">
-                    <p className="text-xs font-bold text-red-100 text-center">
-                      Yakin mengeksekusi{' '}
-                      <strong>
-                        {
-                          players.find((p) => p.id === selectedAssassinTarget)
-                            ?.name
-                        }
-                      </strong>{' '}
-                      sebagai Merlin? Keputusan ini tidak bisa dibatalkan!
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setConfirmAssassinate(false)}
-                        className="py-2.5 rounded-lg bg-slate-800 text-slate-200 text-xs font-bold"
-                      >
-                        Batal
-                      </button>
-                      <button
-                        onClick={handleExecuteAssassination}
-                        className="py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-extrabold"
-                      >
-                        Ya, Eksekusi Sekarang!
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="p-4 rounded-xl bg-[#0B1120]/80 border border-red-500/40 text-center space-y-2">
-                <Skull className="w-8 h-8 text-red-400 mx-auto animate-bounce" />
-                <p className="text-sm font-bold text-white">
-                  Assassin ({players.find((p) => p.role === 'ASSASSIN')?.name})
-                  sedang berdiskusi dengan sekutunya...
-                </p>
-                <p className="text-xs text-slate-400">
-                  Jaga ekspresi wajahmu! Jangan beri petunjuk siapa Merlin
-                  sebenarnya.
-                </p>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ====================================================================
-            FASE F: LAYAR AKHIR & PENGUNGKAPAN PERAN (GAME_OVER)
-            ==================================================================== */}
-        {roomData.status === 'GAME_OVER' && (
-          <section className="space-y-4">
-            <div
-              className={`rounded-2xl border-2 p-5 text-center shadow-2xl space-y-2 ${
-                game.winner === 'GOOD'
-                  ? 'bg-gradient-to-b from-blue-900/70 to-[#1E293B] border-blue-400'
-                  : 'bg-gradient-to-b from-red-900/70 to-[#1E293B] border-red-400'
-              }`}
-            >
-              <Crown
-                className={`w-12 h-12 mx-auto ${
-                  game.winner === 'GOOD' ? 'text-blue-300' : 'text-red-300'
-                }`}
-              />
-              <p className="text-xs font-extrabold uppercase tracking-widest opacity-80">
-                Permainan Berakhir
-              </p>
-              <h2 className="text-2xl font-black text-white">
-                {game.winner === 'GOOD'
-                  ? 'KEMENANGAN KUBU SETIA ARTHUR!'
-                  : 'KEMENANGAN KUBU JAHAT MORDRED!'}
-              </h2>
-              <p className="text-sm text-slate-200 leading-relaxed pt-1">
-                {game.winReason}
-              </p>
-            </div>
-
-            {/* Pengungkapan Semua Identitas */}
-            <div className="bg-[#1E293B] border border-amber-600/40 rounded-2xl p-4 shadow-xl space-y-3">
-              <h3 className="text-sm font-extrabold uppercase tracking-wider text-amber-400">
-                Pengungkapan Seluruh Identitas
-              </h3>
-              <div className="space-y-2">
-                {players.map((p) => {
-                  const rDef = p.role ? ROLE_DEFINITIONS[p.role] : null;
-                  const wasAssassinated = game.assassinTargetId === p.id;
-                  return (
-                    <div
-                      key={p.id}
-                      className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border ${
-                        rDef?.alignment === 'GOOD'
-                          ? 'bg-blue-950/30 border-blue-500/40'
-                          : 'bg-red-950/30 border-red-500/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        {p.role && (
-                          <CharacterPortrait roleId={p.role} size="xs" />
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-bold text-sm text-white truncate">
-                            {p.name}
-                          </p>
-                          {wasAssassinated && (
-                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-extrabold">
-                              Target Assassin
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span
-                        className={`px-2.5 py-1 rounded-lg text-xs font-extrabold shrink-0 ${
-                          rDef?.alignment === 'GOOD'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-red-600 text-white'
-                        }`}
-                      >
-                        {rDef?.name || 'Tidak Diketahui'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Tombol Rematch / Keluar */}
-            <div className="space-y-2.5 pt-1">
-              {isHost ? (
-                <button
-                  onClick={handleRematch}
-                  className="w-full py-4 px-5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-extrabold text-base shadow-lg flex items-center justify-center gap-2"
-                >
-                  <RotateCcw className="w-5 h-5" />
-                  <span>Main Lagi di Ruangan Ini</span>
-                </button>
-              ) : (
-                <div className="p-3.5 rounded-xl bg-[#1E293B] border border-amber-500/30 text-center text-xs font-semibold text-amber-300">
-                  Menunggu Host memulai ronde baru di ruangan ini...
-                </div>
-              )}
-
-              <button
-                onClick={handleLeaveRoom}
-                className="w-full py-3 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Keluar Ruangan</span>
-              </button>
-            </div>
-          </section>
-        )}
-      </main>
-
-      {/* ======================================================================
-          MODAL "INTIP PERAN SAYA" (BISA DIAKSES KAPAN SAJA SAAT PERTANDINGAN)
-          ====================================================================== */}
-      {showPeekModal && myRoleDef && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#1E293B] border-2 border-amber-500/60 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-3">
-              <div className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-amber-400" />
-                <h3 className="font-extrabold text-white">
-                  Kartu Identitas Rahasia
-                </h3>
-              </div>
-              <button
-                onClick={() => {
-                  setShowPeekModal(false);
-                  setPeekRevealed(false);
-                }}
-                className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {!peekRevealed ? (
-              <button
-                onClick={() => setPeekRevealed(true)}
-                className="w-full py-12 px-4 rounded-xl bg-[#0B1120] border-2 border-dashed border-amber-500/50 text-center space-y-2"
-              >
-                <Eye className="w-8 h-8 text-amber-400 mx-auto" />
-                <p className="font-extrabold text-white text-base">
-                  Ketuk untuk Mengintip Peranmu
-                </p>
-                <p className="text-xs text-slate-400">
-                  Pastikan tidak ada pemain lain yang melihat layarmu.
-                </p>
-              </button>
-            ) : (
-              <div className="space-y-3">
-                <div
-                  className={`p-4 rounded-xl border flex items-center gap-3.5 ${
-                    myRoleDef.alignment === 'GOOD'
-                      ? 'bg-blue-950/60 border-blue-500'
-                      : 'bg-red-950/60 border-red-500'
-                  }`}
-                >
-                  <CharacterPortrait roleId={me.role} size="md" />
-                  <div>
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded text-[11px] font-extrabold uppercase mb-1 ${
-                        myRoleDef.alignment === 'GOOD'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-red-600 text-white'
-                      }`}
-                    >
-                      {myRoleDef.teamLabel}
-                    </span>
-                    <h4 className="text-xl font-black text-white">
-                      {myRoleDef.name}
-                    </h4>
-                    <p className="text-xs text-slate-200 mt-1.5 leading-relaxed">
-                      {myRoleDef.ability}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-[#0B1120] border border-amber-500/30 space-y-2">
-                  <p className="text-xs font-extrabold uppercase text-amber-400">
-                    Penglihatan Batin:
-                  </p>
-                  {myVision.targets.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {myVision.targets.map((t) => (
-                        <div
-                          key={t.id}
-                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-200 text-xs font-extrabold"
-                        >
-                          <CharacterPortrait
-                            roleId={
-                              me.role === 'PERCIVAL'
-                                ? 'MERLIN'
-                                : me.role === 'MERLIN'
-                                ? 'MINION'
-                                : t.role
-                            }
-                            size="xs"
-                          />
-                          <span>{t.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-xs text-slate-400">{myVision.note}</p>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={() => {
-                setShowPeekModal(false);
-                setPeekRevealed(false);
-              }}
-              className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm"
-            >
-              Tutup & Sembunyikan
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================================
-          MODAL RIWAYAT PERTANDINGAN (MATCH LOGS)
-          ====================================================================== */}
-      {showLogsDrawer && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#1E293B] border border-amber-500/40 rounded-2xl p-4 shadow-2xl max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-700 pb-3 mb-3">
-              <div className="flex items-center gap-2">
-                <ScrollText className="w-5 h-5 text-amber-400" />
-                <h3 className="font-extrabold text-white">
-                  Catatan Kronik Meja Bundar
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowLogsDrawer(false)}
-                className="p-1.5 rounded-lg bg-slate-800 text-slate-300"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto space-y-2 flex-1 pr-1">
-              {(game.logs || []).length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">
-                  Belum ada catatan peristiwa di pertandingan ini.
-                </p>
-              ) : (
-                [...(game.logs || [])].reverse().map((entry) => (
-                  <div
-                    key={entry.id}
-                    className={`p-2.5 rounded-xl border text-xs leading-relaxed ${
-                      entry.type === 'success' || entry.type === 'approve'
-                        ? 'bg-blue-950/40 border-blue-500/30 text-blue-100'
-                        : entry.type === 'fail' ||
-                          entry.type === 'reject' ||
-                          entry.type === 'assassin'
-                        ? 'bg-red-950/40 border-red-500/30 text-red-100'
-                        : 'bg-[#0B1120] border-slate-800 text-slate-300'
-                    }`}
-                  >
-                    {entry.text}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================================
-          MODAL KITAB KARAKTER (DAFTAR SEMUA 8 POTRET & KEMAMPUAN PERAN)
-          ====================================================================== */}
-      {showGrimoireModal && (
-        <CharacterGrimoireModal onClose={() => setShowGrimoireModal(false)} />
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// KOMPONEN ILUSTRASI CUSTOM SVG: KASTIL CAMELOT (BERANDA)
-// ============================================================================
-function CamelotHeroIllustration() {
-  return (
-    <div className="w-full max-w-sm mx-auto rounded-2xl overflow-hidden border-2 border-amber-500/50 shadow-2xl shadow-amber-950/40 bg-[#0B1120]">
-      <svg
-        viewBox="0 0 400 175"
-        className="w-full h-auto block"
-        role="img"
-        aria-label="Ilustrasi Kastil Camelot dan Meja Bundar"
-      >
-        <defs>
-          <linearGradient id="camelotSky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#070B19" />
-            <stop offset="55%" stopColor="#172554" />
-            <stop offset="100%" stopColor="#1E3A8A" />
-          </linearGradient>
-          <radialGradient id="camelotMoonGlow" cx="50%" cy="38%" r="45%">
-            <stop offset="0%" stopColor="#FDE68A" stopOpacity="0.45" />
-            <stop offset="60%" stopColor="#F59E0B" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="#0B1120" stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id="castleStone" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#334155" />
-            <stop offset="100%" stopColor="#0F172A" />
-          </linearGradient>
-          <linearGradient id="goldSpire" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#FDE047" />
-            <stop offset="100%" stopColor="#B45309" />
-          </linearGradient>
-        </defs>
-
-        {/* Langit Malam & Cahaya Bulan Emas */}
-        <rect width="400" height="175" fill="url(#camelotSky)" />
-        <circle cx="200" cy="65" r="95" fill="url(#camelotMoonGlow)" />
-        <circle cx="200" cy="54" r="24" fill="#FEF3C7" opacity="0.92" />
-
-        {/* Bintang-bintang */}
-        <circle cx="48" cy="28" r="1.4" fill="#FDE68A" />
-        <circle cx="88" cy="46" r="1.1" fill="#E2E8F0" />
-        <circle cx="128" cy="22" r="1.6" fill="#FDE68A" />
-        <circle cx="275" cy="25" r="1.5" fill="#FDE68A" />
-        <circle cx="322" cy="42" r="1.2" fill="#E2E8F0" />
-        <circle cx="358" cy="26" r="1.6" fill="#FDE68A" />
-
-        {/* Pegunungan Latar */}
-        <polygon points="0,145 75,85 155,145" fill="#0F172A" opacity="0.85" />
-        <polygon
-          points="245,145 325,82 400,145"
-          fill="#0F172A"
-          opacity="0.85"
-        />
-
-        {/* Siluet Kastil Agung Camelot */}
-        <g fill="url(#castleStone)" stroke="#475569" strokeWidth="0.7">
-          {/* Menara Kiri */}
-          <rect x="112" y="78" width="22" height="65" />
-          <polygon points="109,78 123,54 137,78" fill="url(#goldSpire)" />
-          {/* Menara Kanan */}
-          <rect x="266" y="78" width="22" height="65" />
-          <polygon points="263,78 277,54 291,78" fill="url(#goldSpire)" />
-          {/* Menara Tengah Utama */}
-          <rect x="178" y="54" width="44" height="88" />
-          <polygon points="174,54 200,22 226,54" fill="url(#goldSpire)" />
-          {/* Sayap Benteng */}
-          <rect x="134" y="92" width="44" height="52" />
-          <rect x="222" y="92" width="44" height="52" />
-        </g>
-
-        {/* Jendela Kastil Bercahaya Emas */}
-        <g fill="#FBBF24">
-          <rect x="196" y="64" width="8" height="14" rx="4" />
-          <rect x="186" y="84" width="6" height="11" rx="3" />
-          <rect x="208" y="84" width="6" height="11" rx="3" />
-          <rect x="120" y="90" width="5" height="9" rx="2.5" />
-          <rect x="275" y="90" width="5" height="9" rx="2.5" />
-          <rect x="148" y="104" width="5" height="9" rx="2.5" />
-          <rect x="247" y="104" width="5" height="9" rx="2.5" />
-        </g>
-
-        {/* Bukit Hijau-Gelap & Danau */}
-        <path d="M0,140 Q200,118 400,140 L400,175 L0,175 Z" fill="#090E1A" />
-        <path
-          d="M0,140 Q200,118 400,140"
-          fill="none"
-          stroke="#D97706"
-          strokeWidth="1.5"
-          opacity="0.7"
-        />
-
-        {/* Lambang Meja Bundar & Pedang Excalibur di Tengah Bawah */}
-        <g transform="translate(200, 146)">
-          <ellipse
-            cx="0"
-            cy="4"
-            rx="46"
-            ry="14"
-            fill="#1E293B"
-            stroke="#F59E0B"
-            strokeWidth="2"
-          />
-          <ellipse
-            cx="0"
-            cy="4"
-            rx="34"
-            ry="9"
-            fill="none"
-            stroke="#FDE68A"
-            strokeWidth="0.8"
-            strokeDasharray="3 2"
-          />
-          {/* Pedang Excalibur Tegak */}
-          <polygon points="0,-24 3,-4 0,4 -3,-4" fill="#E0F2FE" />
-          <rect x="-8" y="-6" width="16" height="2.5" rx="1" fill="#FBBF24" />
-          <rect x="-1.5" y="-12" width="3" height="6" fill="#B45309" />
-          <circle cx="0" cy="-13" r="2.2" fill="#FDE047" />
-        </g>
-      </svg>
-    </div>
-  );
-}
-
-// ============================================================================
-// KOMPONEN ILUSTRASI CUSTOM SVG: POTRET 8 KARAKTER AVALON
+// KOMPONEN ILUSTRASI CUSTOM SVG: POTRET 8 KARAKTER AVALON (DETAIL REALISTIS)
 // ============================================================================
 function CharacterPortrait({ roleId, size = 'md', className = '' }) {
   const roleDef = ROLE_DEFINITIONS[roleId] || ROLE_DEFINITIONS.LOYAL_SERVANT;
   const isGood = roleDef.alignment === 'GOOD';
 
   const sizeClasses = {
-    xs: 'w-10 h-10 rounded-xl border',
-    sm: 'w-12 h-12 rounded-xl border-2',
-    md: 'w-16 h-16 rounded-2xl border-2',
-    lg: 'w-20 h-20 rounded-2xl border-2',
+    xs: 'w-11 h-11 rounded-xl border',
+    sm: 'w-14 h-14 rounded-xl border-2',
+    md: 'w-20 h-20 rounded-2xl border-2',
+    lg: 'w-24 h-24 rounded-2xl border-2',
+    card: 'w-full aspect-[4/3] rounded-t-2xl'
   };
 
-  const frameStyle = isGood
-    ? 'border-amber-400/80 shadow-md shadow-blue-950/60 bg-slate-900'
-    : 'border-red-500/80 shadow-md shadow-red-950/60 bg-slate-950';
+  const frameStyle =
+    size === 'card'
+      ? 'bg-slate-950'
+      : isGood
+      ? 'border-amber-400/90 shadow-lg shadow-blue-950/70 bg-slate-950'
+      : 'border-red-500/90 shadow-lg shadow-red-950/70 bg-slate-950';
 
   const uid = `${roleId}_${size}`;
+  const isCard = size === 'card';
 
   return (
     <div
       className={`overflow-hidden shrink-0 relative select-none ${sizeClasses[size]} ${frameStyle} ${className}`}
       title={roleDef.name}
     >
-      <svg viewBox="0 0 100 100" className="w-full h-full block">
+      <svg
+        viewBox={isCard ? '-30 0 180 120' : '0 0 120 120'}
+        preserveAspectRatio="xMidYMid slice"
+        className="w-full h-full block"
+      >
         <defs>
-          <radialGradient id={`bg_good_${uid}`} cx="50%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#2563EB" />
-            <stop offset="60%" stopColor="#1E3A8A" />
-            <stop offset="100%" stopColor="#090D16" />
+          {/* Gradien Latar Karakter */}
+          <radialGradient id={`bg_merlin_${uid}`} cx="50%" cy="32%" r="72%">
+            <stop offset="0%" stopColor="#7DD3FC" />
+            <stop offset="35%" stopColor="#1D4ED8" />
+            <stop offset="75%" stopColor="#172554" />
+            <stop offset="100%" stopColor="#040812" />
           </radialGradient>
-          <radialGradient id={`bg_evil_${uid}`} cx="50%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#991B1B" />
-            <stop offset="60%" stopColor="#450A0A" />
-            <stop offset="100%" stopColor="#09090B" />
+          <radialGradient id={`bg_percival_${uid}`} cx="50%" cy="32%" r="72%">
+            <stop offset="0%" stopColor="#FBBF24" stopOpacity="0.9" />
+            <stop offset="38%" stopColor="#1E40AF" />
+            <stop offset="78%" stopColor="#0F172A" />
+            <stop offset="100%" stopColor="#040711" />
           </radialGradient>
-          <radialGradient id={`bg_morgana_${uid}`} cx="50%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#7E22CE" />
-            <stop offset="60%" stopColor="#3B0764" />
-            <stop offset="100%" stopColor="#09090B" />
+          <radialGradient id={`bg_servant_${uid}`} cx="50%" cy="35%" r="72%">
+            <stop offset="0%" stopColor="#60A5FA" />
+            <stop offset="50%" stopColor="#1E3A8A" />
+            <stop offset="100%" stopColor="#050914" />
           </radialGradient>
-          <radialGradient id={`bg_oberon_${uid}`} cx="50%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#065F46" />
-            <stop offset="60%" stopColor="#022C22" />
-            <stop offset="100%" stopColor="#050A08" />
+          <radialGradient id={`bg_assassin_${uid}`} cx="50%" cy="35%" r="72%">
+            <stop offset="0%" stopColor="#DC2626" />
+            <stop offset="45%" stopColor="#450A0A" />
+            <stop offset="100%" stopColor="#040406" />
           </radialGradient>
-          <linearGradient id={`goldGrad_${uid}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#FDE047" />
-            <stop offset="50%" stopColor="#F59E0B" />
-            <stop offset="100%" stopColor="#92400E" />
+          <radialGradient id={`bg_morgana_${uid}`} cx="50%" cy="32%" r="72%">
+            <stop offset="0%" stopColor="#D8B4FE" />
+            <stop offset="40%" stopColor="#6B21A8" />
+            <stop offset="80%" stopColor="#2E1065" />
+            <stop offset="100%" stopColor="#060210" />
+          </radialGradient>
+          <radialGradient id={`bg_mordred_${uid}`} cx="50%" cy="32%" r="72%">
+            <stop offset="0%" stopColor="#F87171" />
+            <stop offset="40%" stopColor="#7F1D1D" />
+            <stop offset="80%" stopColor="#18181B" />
+            <stop offset="100%" stopColor="#030304" />
+          </radialGradient>
+          <radialGradient id={`bg_oberon_${uid}`} cx="50%" cy="35%" r="72%">
+            <stop offset="0%" stopColor="#34D399" />
+            <stop offset="45%" stopColor="#064E3B" />
+            <stop offset="100%" stopColor="#02100C" />
+          </radialGradient>
+          <radialGradient id={`bg_minion_${uid}`} cx="50%" cy="35%" r="72%">
+            <stop offset="0%" stopColor="#B91C1C" />
+            <stop offset="50%" stopColor="#27272A" />
+            <stop offset="100%" stopColor="#070709" />
+          </radialGradient>
+
+          {/* Gradien Material (Emas, Baja, Kulit, Bayangan Wajah) */}
+          <linearGradient id={`gold_${uid}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FEF9C3" />
+            <stop offset="35%" stopColor="#F59E0B" />
+            <stop offset="75%" stopColor="#B45309" />
+            <stop offset="100%" stopColor="#451A03" />
           </linearGradient>
-          <linearGradient id={`steelGrad_${uid}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#F1F5F9" />
-            <stop offset="50%" stopColor="#94A3B8" />
-            <stop offset="100%" stopColor="#334155" />
+          <linearGradient id={`steel_${uid}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="30%" stopColor="#E2E8F0" />
+            <stop offset="65%" stopColor="#64748B" />
+            <stop offset="100%" stopColor="#0F172A" />
+          </linearGradient>
+          <linearGradient id={`darkArmor_${uid}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#71717A" />
+            <stop offset="40%" stopColor="#27272A" />
+            <stop offset="100%" stopColor="#09090B" />
+          </linearGradient>
+          <radialGradient id={`skinReal_${uid}`} cx="42%" cy="38%" r="62%">
+            <stop offset="0%" stopColor="#FEF3C7" />
+            <stop offset="48%" stopColor="#FCD34D" />
+            <stop offset="82%" stopColor="#D97706" />
+            <stop offset="100%" stopColor="#92400E" />
+          </radialGradient>
+          <radialGradient id={`skinPaleReal_${uid}`} cx="42%" cy="38%" r="62%">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="50%" stopColor="#F3E8FF" />
+            <stop offset="85%" stopColor="#C084FC" />
+            <stop offset="100%" stopColor="#7E22CE" />
+          </radialGradient>
+          <radialGradient id={`orbGlow_${uid}`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="35%" stopColor="#7DD3FC" />
+            <stop offset="75%" stopColor="#0284C7" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#0284C7" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id={`vignette_${uid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#000000" stopOpacity="0.15" />
+            <stop offset="65%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="100%" stopColor="#050811" stopOpacity="0.78" />
           </linearGradient>
         </defs>
 
-        {/* Latar Belakang Sesuai Karakter */}
+        {/* Latar Belakang Panoramik */}
         <rect
-          width="100"
-          height="100"
+          x="-40"
+          y="0"
+          width="200"
+          height="120"
           fill={
-            roleId === 'MORGANA'
+            roleId === 'MERLIN'
+              ? `url(#bg_merlin_${uid})`
+              : roleId === 'PERCIVAL'
+              ? `url(#bg_percival_${uid})`
+              : roleId === 'LOYAL_SERVANT'
+              ? `url(#bg_servant_${uid})`
+              : roleId === 'ASSASSIN'
+              ? `url(#bg_assassin_${uid})`
+              : roleId === 'MORGANA'
               ? `url(#bg_morgana_${uid})`
+              : roleId === 'MORDRED'
+              ? `url(#bg_mordred_${uid})`
               : roleId === 'OBERON'
               ? `url(#bg_oberon_${uid})`
-              : isGood
-              ? `url(#bg_good_${uid})`
-              : `url(#bg_evil_${uid})`
+              : `url(#bg_minion_${uid})`
           }
         />
 
-        {/* 1. MERLIN: Penyihir Agung Berjubah Biru Safir, Janggut Putih, Tongkat Kristal */}
+        {/* 1. MERLIN */}
         {roleId === 'MERLIN' && (
           <g>
-            {/* Lingkaran Sihir Batin */}
-            <circle
-              cx="50"
-              cy="40"
-              r="30"
-              fill="none"
-              stroke="#38BDF8"
-              strokeWidth="1.2"
-              strokeDasharray="4 3"
-              opacity="0.7"
-            />
-            {/* Jubah Penyihir Biru Safir */}
-            <path d="M16,100 Q24,62 50,60 Q76,62 84,100 Z" fill="#1D4ED8" />
-            <path
-              d="M32,63 L50,96 L68,63"
-              fill="none"
-              stroke={`url(#goldGrad_${uid})`}
-              strokeWidth="2.5"
-            />
-            {/* Bintang pada Jubah */}
-            <circle cx="28" cy="82" r="1.5" fill="#FDE047" />
-            <circle cx="72" cy="84" r="1.5" fill="#FDE047" />
-            {/* Tudung Penyihir */}
-            <path d="M27,54 Q30,20 50,15 Q70,20 73,54 Z" fill="#1E40AF" />
-            {/* Wajah & Mata Bercahaya Biru */}
-            <ellipse cx="50" cy="43" rx="13" ry="15" fill="#FDE68A" />
-            <circle cx="45" cy="40" r="2" fill="#38BDF8" />
-            <circle cx="55" cy="40" r="2" fill="#38BDF8" />
-            {/* Janggut Putih Panjang */}
-            <path
-              d="M37,47 Q36,75 50,86 Q64,75 63,47 Q50,53 37,47 Z"
-              fill="#F8FAFC"
-            />
-            {/* Tongkat Kristal Bercahaya di Kanan */}
-            <line
-              x1="82"
-              y1="26"
-              x2="78"
-              y2="98"
-              stroke="#92400E"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-            />
-            <circle cx="82" cy="24" r="9" fill="#38BDF8" opacity="0.35" />
-            <polygon
-              points="82,16 88,24 82,32 76,24"
-              fill="#7DD3FC"
-              stroke="#E0F2FE"
-              strokeWidth="1"
-            />
+            {/* Lingkaran Sihir & Aura Kuno */}
+            <circle cx="60" cy="48" r="46" fill="none" stroke="#7DD3FC" strokeWidth="1" strokeDasharray="3 3" opacity="0.55" />
+            <circle cx="60" cy="48" r="36" fill="none" stroke="#FDE047" strokeWidth="0.9" strokeDasharray="10 4" opacity="0.45" />
+            <circle cx="14" cy="24" r="1.8" fill="#FEF08A" />
+            <circle cx="24" cy="66" r="1.5" fill="#7DD3FC" />
+            <circle cx="112" cy="54" r="1.7" fill="#FEF08A" />
+            {/* Jubah Berlapis & Kerah Emas */}
+            <path d="M12,120 Q22,72 60,68 Q98,72 108,120 Z" fill="#172554" />
+            <path d="M22,120 Q32,76 60,72 Q88,76 98,120 Z" fill="#1D4ED8" />
+            <path d="M34,73 L60,116 L86,73" fill="none" stroke={`url(#gold_${uid})`} strokeWidth="4" />
+            <path d="M42,75 L60,105 L78,75" fill="#0F172A" opacity="0.55" />
+            <polygon points="31,96 33,100 37,100 34,102 35,106 31,103 27,106 28,102 25,100 29,100" fill="#FDE047" opacity="0.85" />
+            <polygon points="89,98 90.5,101 94,101 91.5,103 92.5,106 89,104 85.5,106 86.5,103 84,101 87.5,101" fill="#FDE047" opacity="0.85" />
+            {/* Tudung Penyihir dengan Bayangan Dalam */}
+            <path d="M29,67 Q32,20 60,12 Q88,20 91,67 Q75,54 60,54 Q45,54 29,67 Z" fill="#1E40AF" stroke={`url(#gold_${uid})`} strokeWidth="1.8" />
+            <path d="M35,63 Q39,25 60,19 Q81,25 85,63" fill="#090D16" opacity="0.55" />
+            {/* Struktur Wajah Realistis */}
+            <ellipse cx="60" cy="49" rx="14.5" ry="17.5" fill={`url(#skinReal_${uid})`} />
+            <path d="M46,42 Q60,36 74,42" fill="#78350F" opacity="0.22" />
+            {/* Alis, Mata Bercahaya & Hidung */}
+            <path d="M47,43 Q52,39.5 57,43" fill="none" stroke="#F8FAFC" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M63,43 Q68,39.5 73,43" fill="none" stroke="#F8FAFC" strokeWidth="2.5" strokeLinecap="round" />
+            <ellipse cx="53" cy="47" rx="2.8" ry="2.2" fill="#0F172A" />
+            <circle cx="53" cy="47" r="1.8" fill="#38BDF8" />
+            <circle cx="52.4" cy="46.4" r="0.7" fill="#FFFFFF" />
+            <ellipse cx="67" cy="47" rx="2.8" ry="2.2" fill="#0F172A" />
+            <circle cx="67" cy="47" r="1.8" fill="#38BDF8" />
+            <circle cx="66.4" cy="46.4" r="0.7" fill="#FFFFFF" />
+            <path d="M60,46 L58.2,54 L61.5,55" fill="none" stroke="#92400E" strokeWidth="1.5" strokeLinecap="round" />
+            {/* Kumis & Janggut Panjang Berlapis */}
+            <path d="M46,57 Q60,52.5 74,57 Q66,62.5 60,59 Q54,62.5 46,57 Z" fill="#F1F5F9" />
+            <path d="M42,56 Q39,90 60,106 Q81,90 78,56 Q60,64 42,56 Z" fill="#F8FAFC" />
+            <path d="M49,61 Q50,87 60,101 Q70,87 71,61" fill="none" stroke="#94A3B8" strokeWidth="1.2" />
+            <path d="M55,63 Q56,85 60,96 Q64,85 65,63" fill="none" stroke="#CBD5E1" strokeWidth="1" />
+            {/* Tongkat Sihir & Kristal */}
+            <path d="M103,33 L96,118" stroke="#451A03" strokeWidth="5" strokeLinecap="round" />
+            <path d="M98,35 Q103,22 108,35" fill="none" stroke={`url(#gold_${uid})`} strokeWidth="2.8" />
+            <circle cx="103" cy="26" r="17" fill={`url(#orbGlow_${uid})`} />
+            <polygon points="103,16 110,26 103,36 96,26" fill="#E0F2FE" stroke="#38BDF8" strokeWidth="1.2" />
+            <polygon points="103,19 107,26 103,33 99,26" fill="#FFFFFF" />
           </g>
         )}
 
-        {/* 2. PERCIVAL: Ksatria Pelindung Zirah Perak-Emas, Perisai Naga & Pedang */}
+        {/* 2. PERCIVAL */}
         {roleId === 'PERCIVAL' && (
           <g>
-            {/* Jubah Merah-Biru Bangsawan */}
-            <path d="M18,100 L28,62 L72,62 L82,100 Z" fill="#1E3A8A" />
-            {/* Zirah Baja Perak & Bahu Emas */}
+            {/* Jubah Kerajaan Merah */}
+            <path d="M10,120 L24,70 L96,70 L110,120 Z" fill="#7F1D1D" />
+            {/* Pedang Terhunus */}
+            <polygon points="18,14 23,74 13,74" fill={`url(#steel_${uid})`} />
+            <line x1="18" y1="18" x2="18" y2="72" stroke="#FFFFFF" strokeWidth="1.2" />
+            <rect x="9" y="73" width="18" height="4.5" rx="1.5" fill={`url(#gold_${uid})`} />
+            <rect x="16" y="77.5" width="4" height="11" fill="#451A03" />
+            <circle cx="18" cy="90" r="3.2" fill={`url(#gold_${uid})`} />
+            {/* Zirah Pelat Baja & Pelindung Bahu Emas */}
+            <path d="M24,120 Q30,72 60,68 Q90,72 96,120 Z" fill={`url(#steel_${uid})`} />
+            <path d="M43,72 L60,107 L77,72" fill="none" stroke={`url(#gold_${uid})`} strokeWidth="2.8" />
+            <path d="M20,82 Q33,64 46,75 L35,95 Z" fill={`url(#gold_${uid})`} stroke="#78350F" strokeWidth="1.2" />
+            <path d="M100,82 Q87,64 74,75 L85,95 Z" fill={`url(#gold_${uid})`} stroke="#78350F" strokeWidth="1.2" />
+            {/* Rambut & Wajah Ksatria */}
+            <path d="M40,44 Q40,21 60,20 Q80,21 80,44 L77,54 L43,54 Z" fill="#451A03" />
+            <ellipse cx="60" cy="48" rx="14.5" ry="17" fill={`url(#skinReal_${uid})`} />
+            <path d="M43,36 Q60,27 77,36 L75,28 Q60,20 45,28 Z" fill={`url(#gold_${uid})`} />
+            <polygon points="60,22 63.5,28.5 60,33 56.5,28.5" fill="#38BDF8" />
+            <path d="M48,43 L56,44.5" stroke="#451A03" strokeWidth="2.1" strokeLinecap="round" />
+            <path d="M72,43 L64,44.5" stroke="#451A03" strokeWidth="2.1" strokeLinecap="round" />
+            <ellipse cx="53" cy="47.5" rx="2.4" ry="1.9" fill="#0F172A" />
+            <circle cx="52.4" cy="47" r="0.7" fill="#FFFFFF" />
+            <ellipse cx="67" cy="47.5" rx="2.4" ry="1.9" fill="#0F172A" />
+            <circle cx="66.4" cy="47" r="0.7" fill="#FFFFFF" />
+            <path d="M60,47 L58.5,52.5 L61,53.5" fill="none" stroke="#92400E" strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M55,56.5 Q60,58.5 65,56.5" fill="none" stroke="#78350F" strokeWidth="1.7" strokeLinecap="round" />
+            {/* Perisai Lambang Naga */}
             <path
-              d="M25,100 Q30,64 50,62 Q70,64 75,100 Z"
-              fill={`url(#steelGrad_${uid})`}
+              d="M78,71 L108,71 L105,96 Q93,113 93,113 Q81,96 78,71 Z"
+              fill="#1E3A8A"
+              stroke={`url(#gold_${uid})`}
+              strokeWidth="3"
             />
-            <path
-              d="M22,68 Q32,58 40,66 L32,78 Z"
-              fill={`url(#goldGrad_${uid})`}
-            />
-            <path
-              d="M78,68 Q68,58 60,66 L68,78 Z"
-              fill={`url(#goldGrad_${uid})`}
-            />
-            {/* Kepala Ksatria & Mahkota Pelindung */}
-            <ellipse cx="50" cy="41" rx="13" ry="15" fill="#FCD34D" />
-            <path
-              d="M36,34 Q50,24 64,34 L62,27 Q50,20 38,27 Z"
-              fill={`url(#goldGrad_${uid})`}
-            />
-            <path d="M36,35 Q38,22 50,21 Q62,22 64,35" fill="#78350F" />
-            <circle cx="45" cy="41" r="1.8" fill="#1E293B" />
-            <circle cx="55" cy="41" r="1.8" fill="#1E293B" />
-            {/* Pedang Tegak di Kiri */}
-            <polygon points="18,18 21,64 15,64" fill="#F8FAFC" />
-            <rect
-              x="12"
-              y="64"
-              width="12"
-              height="3"
-              rx="1"
-              fill={`url(#goldGrad_${uid})`}
-            />
-            {/* Perisai Lambang Naga di Kanan */}
-            <path
-              d="M66,62 L88,62 L86,82 Q77,94 77,94 Q68,82 66,62 Z"
-              fill="#1D4ED8"
-              stroke={`url(#goldGrad_${uid})`}
-              strokeWidth="2.5"
-            />
-            <path
-              d="M73,72 Q79,68 81,76 Q76,80 74,84"
-              fill="none"
-              stroke="#FDE047"
-              strokeWidth="2"
-            />
+            <path d="M88,81 Q96,76 98,85 Q92,90 90,98 Q96,97 99,93" fill="none" stroke="#FDE047" strokeWidth="2.3" strokeLinecap="round" />
           </g>
         )}
 
-        {/* 3. PELAYAN SETIA ARTHUR: Ksatria Kerajaan dengan Panji Singa Emas */}
+        {/* 3. PELAYAN SETIA ARTHUR */}
         {roleId === 'LOYAL_SERVANT' && (
           <g>
-            {/* Panji Singa Emas di Belakang */}
-            <rect
-              x="14"
-              y="16"
-              width="22"
-              height="58"
-              fill="#1D4ED8"
-              stroke="#F59E0B"
-              strokeWidth="1.5"
-            />
-            <circle cx="25" cy="36" r="6" fill="#FBBF24" />
-            {/* Bahu & Jubah Royal Blue */}
-            <path d="M20,100 Q28,62 50,60 Q72,62 80,100 Z" fill="#2563EB" />
-            <path d="M34,62 L50,86 L66,62" fill="#E2E8F0" />
-            <circle cx="50" cy="70" r="4" fill={`url(#goldGrad_${uid})`} />
-            {/* Kepala Ksatria Muda */}
-            <ellipse cx="50" cy="41" rx="13" ry="15" fill="#FDE68A" />
-            <path
-              d="M36,36 Q39,22 50,22 Q61,22 64,36 Q55,30 36,36 Z"
-              fill="#92400E"
-            />
-            <circle cx="45" cy="42" r="1.8" fill="#0F172A" />
-            <circle cx="55" cy="42" r="1.8" fill="#0F172A" />
-            <path
-              d="M46,49 Q50,52 54,49"
-              fill="none"
-              stroke="#92400E"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
+            {/* Panji Kerajaan Camelot */}
+            <rect x="12" y="13" width="27" height="74" fill="#1D4ED8" stroke={`url(#gold_${uid})`} strokeWidth="2.2" />
+            <polygon points="12,87 25.5,76 39,87" fill="#1E3A8A" />
+            <polygon points="18.5,44 20.5,34 25.5,40 30.5,34 32.5,44" fill="#FDE047" />
+            <line x1="10" y1="13" x2="41" y2="13" stroke={`url(#gold_${uid})`} strokeWidth="3.2" strokeLinecap="round" />
+            {/* Tunik Ksatria & Selempang Putih */}
+            <path d="M20,120 Q28,72 60,68 Q92,72 100,120 Z" fill="#1E40AF" />
+            <path d="M37,72 L60,105 L83,72 L75,70 L60,92 L45,70 Z" fill="#F8FAFC" />
+            <circle cx="60" cy="83" r="5.5" fill={`url(#gold_${uid})`} />
+            {/* Rambut & Wajah Ksatria Setia */}
+            <path d="M41,45 Q41,21 60,20 Q79,21 79,45 Z" fill="#78350F" />
+            <ellipse cx="60" cy="48" rx="14.5" ry="17" fill={`url(#skinReal_${uid})`} />
+            <path d="M44,41 Q50,25 64,25 Q74,27 76,41 Q64,33 44,41 Z" fill="#92400E" />
+            <path d="M49,43 Q53,40.5 56,43" fill="none" stroke="#451A03" strokeWidth="1.9" strokeLinecap="round" />
+            <path d="M64,43 Q67,40.5 71,43" fill="none" stroke="#451A03" strokeWidth="1.9" strokeLinecap="round" />
+            <ellipse cx="53" cy="47.5" rx="2.3" ry="1.8" fill="#0F172A" />
+            <circle cx="52.4" cy="47" r="0.7" fill="#FFFFFF" />
+            <ellipse cx="67" cy="47.5" rx="2.3" ry="1.8" fill="#0F172A" />
+            <circle cx="66.4" cy="47" r="0.7" fill="#FFFFFF" />
+            <path d="M60,47 L58.5,52.5 L61,53.5" fill="none" stroke="#92400E" strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M54,56 Q60,60.5 66,56" fill="none" stroke="#78350F" strokeWidth="1.9" strokeLinecap="round" />
           </g>
         )}
 
-        {/* 4. ASSASSIN: Tudung Hitam-Crimson, Tatapan Tajam, Belati Beracun */}
+        {/* 4. ASSASSIN */}
         {roleId === 'ASSASSIN' && (
           <g>
-            {/* Jubah & Tudung Gelap */}
+            {/* Jubah Hitam & Bros Darah */}
+            <path d="M12,120 Q22,67 60,65 Q98,67 108,120 Z" fill="#09090B" stroke="#991B1B" strokeWidth="1.6" />
+            <path d="M31,69 L60,113 L89,69" fill="#18181B" stroke="#DC2626" strokeWidth="1.6" />
+            <circle cx="60" cy="92" r="6.5" fill="#7F1D1D" stroke="#EF4444" strokeWidth="1.4" />
+            {/* Tudung Gelap */}
             <path
-              d="M16,100 Q24,58 50,56 Q76,58 84,100 Z"
-              fill="#18181B"
-              stroke="#991B1B"
-              strokeWidth="1.5"
-            />
-            <path
-              d="M25,58 Q28,18 50,15 Q72,18 75,58 Q50,48 25,58 Z"
+              d="M27,70 Q31,19 60,13 Q89,19 93,70 Q60,55 27,70 Z"
               fill="#09090B"
               stroke="#DC2626"
-              strokeWidth="1.5"
+              strokeWidth="1.8"
             />
-            {/* Wajah Tertutup Bayangan & Masker */}
-            <ellipse cx="50" cy="42" rx="12" ry="13" fill="#27272A" />
-            <path d="M38,44 L62,44 L59,54 Q50,58 41,54 Z" fill="#7F1D1D" />
-            {/* Mata Merah Tajam Menyala */}
-            <polygon points="41,39 47,41 42,42" fill="#EF4444" />
-            <polygon points="59,39 53,41 58,42" fill="#EF4444" />
-            {/* Belati Beracun Berkilau di Kanan */}
-            <polygon points="82,24 86,58 78,58" fill="#E2E8F0" />
-            <polygon points="82,24 85,42 82,45" fill="#22C55E" />
-            <rect x="74" y="58" width="16" height="3" rx="1" fill="#DC2626" />
-            <rect x="80" y="61" width="4" height="10" fill="#18181B" />
+            <ellipse cx="60" cy="49" rx="14.5" ry="15.5" fill="#111113" />
+            {/* Masker Kain Merah Tua */}
+            <path d="M45,51 L75,51 L71,64 Q60,69 49,64 Z" fill="#7F1D1D" stroke="#B91C1C" strokeWidth="1.1" />
+            <path d="M48,55 L72,59 M50,60 L70,55" stroke="#450A0A" strokeWidth="1.3" />
+            {/* Tatapan Tajam Membara */}
+            <polygon points="47.5,45 57,48 48.5,49.5" fill="#EF4444" />
+            <circle cx="52" cy="47.5" r="1.3" fill="#FEF2F2" />
+            <polygon points="72.5,45 63,48 71.5,49.5" fill="#EF4444" />
+            <circle cx="68" cy="47.5" r="1.3" fill="#FEF2F2" />
+            {/* Belati Beracun */}
+            <polygon points="100,20 105,68 95,68" fill={`url(#steel_${uid})`} />
+            <polygon points="100,20 104,46 100,51 97,44" fill="#22C55E" opacity="0.88" />
+            <circle cx="96" cy="54" r="1.6" fill="#4ADE80" />
+            <rect x="90" y="68" width="20" height="4.2" rx="1" fill="#DC2626" />
+            <rect x="97.5" y="72.2" width="5" height="13" fill="#18181B" />
           </g>
         )}
 
-        {/* 5. MORGANA: Penyihir Ungu Gelap, Mahkota Bulan Sabit & Kabut Sihir */}
+        {/* 5. MORGANA */}
         {roleId === 'MORGANA' && (
           <g>
             {/* Kabut Sihir Ungu */}
-            <circle cx="24" cy="70" r="12" fill="#A855F7" opacity="0.35" />
-            <circle cx="76" cy="68" r="13" fill="#C084FC" opacity="0.35" />
-            {/* Gaun Penyihir Ungu Gelap */}
+            <circle cx="22" cy="76" r="18" fill="#A855F7" opacity="0.32" />
+            <circle cx="98" cy="70" r="20" fill="#C084FC" opacity="0.38" />
+            {/* Rambut Hitam Panjang */}
+            <path d="M35,41 Q30,90 39,106 L81,106 Q90,90 85,41 Z" fill="#09090B" />
+            {/* Gaun Penyihir & Permata Ungu */}
+            <path d="M18,120 Q28,69 60,67 Q92,69 102,120 Z" fill="#3B0764" stroke="#A855F7" strokeWidth="1.6" />
+            <path d="M33,67 L44,87 L60,76 L76,87 L87,67" fill="#581C87" stroke="#E9D5FF" strokeWidth="1.1" />
+            <polygon points="60,82 64.5,90 60,98 55.5,90" fill="#C084FC" />
+            {/* Wajah Pucat Anggun */}
+            <ellipse cx="60" cy="49" rx="14" ry="16.5" fill={`url(#skinPaleReal_${uid})`} />
+            {/* Mahkota Tanduk Perak */}
             <path
-              d="M18,100 Q28,60 50,58 Q72,60 82,100 Z"
-              fill="#3B0764"
-              stroke="#A855F7"
-              strokeWidth="1.2"
-            />
-            <path d="M38,60 L50,84 L62,60" fill="#581C87" />
-            {/* Rambut Gelap & Wajah Pucat */}
-            <path
-              d="M31,36 Q30,74 36,84 L64,84 Q70,74 69,36 Z"
-              fill="#09090B"
-            />
-            <ellipse cx="50" cy="43" rx="12" ry="14" fill="#F3E8FF" />
-            {/* Mahkota Bulan Sabit */}
-            <path
-              d="M36,27 Q50,36 64,27 Q58,18 50,24 Q42,18 36,27 Z"
-              fill="#E9D5FF"
-              stroke="#A855F7"
-              strokeWidth="1"
-            />
-            <circle cx="50" cy="21" r="2.5" fill="#C084FC" />
-            {/* Mata Ungu Misterius */}
-            <circle cx="45" cy="42" r="2" fill="#9333EA" />
-            <circle cx="55" cy="42" r="2" fill="#9333EA" />
-            <path
-              d="M46,50 Q50,48 54,50"
-              fill="none"
-              stroke="#7E22CE"
-              strokeWidth="1.5"
-            />
-          </g>
-        )}
-
-        {/* 6. MORDRED: Zirah Besi Hitam Berduri & Mahkota Bayangan Gelap */}
-        {roleId === 'MORDRED' && (
-          <g>
-            {/* Bahu Zirah Hitam Berduri */}
-            <path
-              d="M16,100 Q26,58 50,56 Q74,58 84,100 Z"
-              fill="#18181B"
-              stroke="#DC2626"
-              strokeWidth="1.5"
-            />
-            <polygon
-              points="16,66 26,52 34,66"
-              fill="#27272A"
-              stroke="#EF4444"
-              strokeWidth="1"
-            />
-            <polygon
-              points="84,66 74,52 66,66"
-              fill="#27272A"
-              stroke="#EF4444"
-              strokeWidth="1"
-            />
-            {/* Helm/Wajah Gelap & Mahkota Hitam Berduri */}
-            <ellipse
-              cx="50"
-              cy="42"
-              rx="13"
-              ry="15"
-              fill="#27272A"
-              stroke="#52525B"
-              strokeWidth="1"
-            />
-            <polygon
-              points="35,30 39,16 45,26 50,13 55,26 61,16 65,30"
-              fill="#09090B"
-              stroke="#EF4444"
+              d="M41,32 Q60,42 79,32 Q71,17 60,26 Q49,17 41,32 Z"
+              fill="#F3E8FF"
+              stroke="#9333EA"
               strokeWidth="1.3"
             />
-            {/* Visor & Mata Bara Merah */}
-            <path d="M39,39 L61,39 L57,46 L43,46 Z" fill="#09090B" />
-            <circle cx="45" cy="42" r="2.2" fill="#EF4444" />
-            <circle cx="55" cy="42" r="2.2" fill="#EF4444" />
+            <circle cx="60" cy="22.5" r="3.6" fill="#A855F7" />
+            <path d="M48,44 Q53,40.5 57,44.5" fill="none" stroke="#1E1B4B" strokeWidth="1.9" strokeLinecap="round" />
+            <path d="M72,44 Q67,40.5 63,44.5" fill="none" stroke="#1E1B4B" strokeWidth="1.9" strokeLinecap="round" />
+            <ellipse cx="53" cy="47.5" rx="2.3" ry="1.8" fill="#581C87" />
+            <circle cx="52.4" cy="47" r="0.7" fill="#FFFFFF" />
+            <ellipse cx="67" cy="47.5" rx="2.3" ry="1.8" fill="#581C87" />
+            <circle cx="66.4" cy="47" r="0.7" fill="#FFFFFF" />
+            <path d="M54,57 Q60,54 66,57 Q60,60.5 54,57 Z" fill="#701A75" />
+            {/* Bola Sihir di Tangan */}
+            <circle cx="96" cy="74" r="12" fill="#A855F7" opacity="0.48" />
+            <circle cx="96" cy="74" r="7" fill="#E9D5FF" stroke="#9333EA" strokeWidth="1.6" />
           </g>
         )}
 
-        {/* 7. OBERON: Topeng Hutan Misterius, Tanduk Ranting & Mata Menyala */}
+        {/* 6. MORDRED */}
+        {roleId === 'MORDRED' && (
+          <g>
+            {/* Jubah Merah Darah & Zirah Besi Hitam */}
+            <path d="M10,120 L25,69 L95,69 L110,120 Z" fill="#7F1D1D" />
+            <path d="M16,120 Q27,67 60,65 Q93,67 104,120 Z" fill={`url(#darkArmor_${uid})`} stroke="#DC2626" strokeWidth="1.6" />
+            <polygon points="13,78 26,53 39,78" fill="#18181B" stroke="#EF4444" strokeWidth="1.5" />
+            <polygon points="107,78 94,53 81,78" fill="#18181B" stroke="#EF4444" strokeWidth="1.5" />
+            <path d="M45,78 L60,105 L75,78" fill="none" stroke="#EF4444" strokeWidth="2.4" />
+            {/* Ketopong Baja & Mahkota Berduri */}
+            <ellipse cx="60" cy="49" rx="15" ry="17" fill="#18181B" stroke="#52525B" strokeWidth="1.5" />
+            <polygon
+              points="40,35 44.5,15 52,29 60,11 68,29 75.5,15 80,35"
+              fill="#09090B"
+              stroke="#EF4444"
+              strokeWidth="1.6"
+            />
+            <polygon points="44,45 76,45 71,54.5 49,54.5" fill="#040405" stroke="#7F1D1D" strokeWidth="1.1" />
+            <circle cx="53" cy="49" r="2.8" fill="#EF4444" />
+            <circle cx="53" cy="49" r="1.2" fill="#FEF08A" />
+            <circle cx="67" cy="49" r="2.8" fill="#EF4444" />
+            <circle cx="67" cy="49" r="1.2" fill="#FEF08A" />
+          </g>
+        )}
+
+        {/* 7. OBERON */}
         {roleId === 'OBERON' && (
           <g>
-            {/* Kabut Hutan */}
-            <path d="M14,100 Q22,60 50,58 Q78,60 86,100 Z" fill="#064E3B" />
-            {/* Tanduk Hutan Misterius */}
+            <path d="M14,120 Q25,69 60,67 Q95,69 106,120 Z" fill="#064E3B" stroke="#10B981" strokeWidth="1.3" />
+            <path d="M35,72 Q60,87 85,72 L77,99 L60,88 L43,99 Z" fill="#022C22" />
+            {/* Tanduk Rusa Bercahaya */}
             <path
-              d="M38,28 Q28,16 24,10 M33,21 L26,22"
+              d="M46,34 Q33,19 25,11 M38,24 L27,26 M41,18 L42,9"
               stroke="#6EE7B7"
-              strokeWidth="2.5"
+              strokeWidth="3"
               strokeLinecap="round"
               fill="none"
             />
             <path
-              d="M62,28 Q72,16 76,10 M67,21 L74,22"
+              d="M74,34 Q87,19 95,11 M82,24 L93,26 M79,18 L78,9"
               stroke="#6EE7B7"
-              strokeWidth="2.5"
+              strokeWidth="3"
               strokeLinecap="round"
               fill="none"
             />
-            {/* Topeng Kayu/Kabut */}
+            {/* Topeng Kayu Mistis */}
             <path
-              d="M36,30 Q50,24 64,30 L61,54 Q50,62 39,54 Z"
+              d="M41,36 Q60,27 79,36 L75,65 Q60,75 45,65 Z"
               fill="#022C22"
               stroke="#34D399"
-              strokeWidth="1.5"
+              strokeWidth="1.9"
             />
-            {/* Mata Spectral Menyala */}
-            <ellipse cx="44" cy="41" rx="3" ry="2" fill="#A7F3D0" />
-            <ellipse cx="56" cy="41" rx="3" ry="2" fill="#A7F3D0" />
-            <path
-              d="M45,50 L50,47 L55,50"
-              fill="none"
-              stroke="#34D399"
-              strokeWidth="1.4"
-            />
+            <line x1="60" y1="32" x2="60" y2="43" stroke="#10B981" strokeWidth="1.6" />
+            <ellipse cx="52" cy="48" rx="4.2" ry="2.6" fill="#A7F3D0" />
+            <ellipse cx="68" cy="48" rx="4.2" ry="2.6" fill="#A7F3D0" />
+            <path d="M52,59 L60,55 L68,59" fill="none" stroke="#34D399" strokeWidth="1.7" strokeLinecap="round" />
           </g>
         )}
 
-        {/* 8. KAKI TANGAN MORDRED: Konspirator Berjubah Gelap & Segel Gagak Merah */}
+        {/* 8. KAKI TANGAN MORDRED */}
         {roleId === 'MINION' && (
           <g>
-            <path d="M18,100 Q26,60 50,58 Q74,60 82,100 Z" fill="#1F2937" />
-            <path
-              d="M28,56 Q32,20 50,18 Q68,20 72,56 Z"
-              fill="#111827"
-              stroke="#B91C1C"
-              strokeWidth="1.2"
-            />
-            <ellipse cx="50" cy="42" rx="11" ry="13" fill="#374151" />
-            <circle cx="45" cy="41" r="1.8" fill="#F87171" />
-            <circle cx="55" cy="41" r="1.8" fill="#F87171" />
-            {/* Segel Gagak Merah di Dada */}
-            <circle
-              cx="50"
-              cy="76"
-              r="10"
-              fill="#7F1D1D"
-              stroke="#EF4444"
-              strokeWidth="1.5"
-            />
-            <polygon points="44,76 50,71 56,76 50,81" fill="#FCA5A5" />
+            <path d="M16,120 Q27,69 60,67 Q93,69 104,120 Z" fill="#18181B" stroke="#7F1D1D" strokeWidth="1.5" />
+            <path d="M31,68 Q37,21 60,17 Q83,21 89,68 Z" fill="#09090B" stroke="#B91C1C" strokeWidth="1.6" />
+            <ellipse cx="60" cy="49" rx="13.5" ry="15.5" fill="#374151" />
+            <path d="M48,44 L56,46.5" stroke="#09090B" strokeWidth="2.1" strokeLinecap="round" />
+            <path d="M72,44 L64,46.5" stroke="#09090B" strokeWidth="2.1" strokeLinecap="round" />
+            <circle cx="53" cy="49" r="2.1" fill="#F87171" />
+            <circle cx="67" cy="49" r="2.1" fill="#F87171" />
+            <path d="M54,58 Q61,55 67,59" fill="none" stroke="#111827" strokeWidth="1.9" strokeLinecap="round" />
+            {/* Medali Rahasia Mordred */}
+            <circle cx="60" cy="90" r="12.5" fill="#7F1D1D" stroke="#EF4444" strokeWidth="1.9" />
+            <polygon points="51,90 60,83 69,90 60,97" fill="#FCA5A5" />
+            <circle cx="60" cy="90" r="2.6" fill="#7F1D1D" />
           </g>
         )}
+
+        {/* Vignette Sinematik untuk Mode Kartu */}
+        {isCard && <rect x="-40" y="0" width="200" height="120" fill={`url(#vignette_${uid})`} />}
       </svg>
     </div>
   );
@@ -3703,41 +863,13 @@ function QuestIllustration({ questNumber, outcome = null }) {
 
         <rect width="400" height="135" fill={`url(#sky_${uid})`} />
 
-        {/* BAB I: GERBANG HUTAN BROCÉLIANDE */}
         {q === 1 && (
           <g>
-            {/* Siluet Pohon Tua Kiri & Kanan */}
             <path d="M0,135 L0,10 Q45,35 72,135 Z" fill="#022C22" />
             <path d="M400,135 L400,10 Q355,35 328,135 Z" fill="#022C22" />
-            {/* Gerbang Batu Megalitikum */}
-            <rect
-              x="148"
-              y="34"
-              width="22"
-              height="90"
-              rx="3"
-              fill="#334155"
-              stroke="#64748B"
-            />
-            <rect
-              x="230"
-              y="34"
-              width="22"
-              height="90"
-              rx="3"
-              fill="#334155"
-              stroke="#64748B"
-            />
-            <rect
-              x="138"
-              y="22"
-              width="124"
-              height="18"
-              rx="4"
-              fill="#475569"
-              stroke="#94A3B8"
-            />
-            {/* Cahaya Suar di Tengah Gerbang */}
+            <rect x="148" y="34" width="22" height="90" rx="3" fill="#334155" stroke="#64748B" />
+            <rect x="230" y="34" width="22" height="90" rx="3" fill="#334155" stroke="#64748B" />
+            <rect x="138" y="22" width="124" height="18" rx="4" fill="#475569" stroke="#94A3B8" />
             <circle
               cx="200"
               cy="86"
@@ -3749,55 +881,22 @@ function QuestIllustration({ questNumber, outcome = null }) {
               points="194,116 200,72 206,116"
               fill={isFail ? '#7F1D1D' : '#FDE047'}
             />
-            {/* Kabut Hutan */}
-            <ellipse
-              cx="200"
-              cy="126"
-              rx="195"
-              ry="16"
-              fill="#94A3B8"
-              opacity="0.22"
-            />
+            <ellipse cx="200" cy="126" rx="195" ry="16" fill="#94A3B8" opacity="0.22" />
           </g>
         )}
 
-        {/* BAB II: BIARA RELIK GLASTONBURY */}
         {q === 2 && (
           <g>
-            {/* Bulan Purnama & Jendela Kaca Patri */}
             <circle cx="200" cy="46" r="24" fill="#FEF3C7" opacity="0.85" />
-            <circle
-              cx="200"
-              cy="46"
-              r="24"
-              fill="none"
-              stroke="#F59E0B"
-              strokeWidth="2"
-            />
-            {/* Pilar Katedral Batu */}
+            <circle cx="200" cy="46" r="24" fill="none" stroke="#F59E0B" strokeWidth="2" />
             <rect x="95" y="15" width="18" height="120" fill="#1E293B" />
             <rect x="287" y="15" width="18" height="120" fill="#1E293B" />
-            <path
-              d="M95,45 Q200,0 305,45"
-              fill="none"
-              stroke="#475569"
-              strokeWidth="5"
-            />
-            {/* Altar & Cawan Suci */}
-            <rect
-              x="165"
-              y="102"
-              width="70"
-              height="28"
-              fill="#334155"
-              stroke="#F59E0B"
-              strokeWidth="1"
-            />
+            <path d="M95,45 Q200,0 305,45" fill="none" stroke="#475569" strokeWidth="5" />
+            <rect x="165" y="102" width="70" height="28" fill="#334155" stroke="#F59E0B" strokeWidth="1" />
             <path
               d="M192,80 L208,80 L203,92 L206,100 L194,100 L197,92 Z"
               fill={isFail ? '#EF4444' : '#FDE047'}
             />
-            {/* Lilin Altar */}
             <rect x="174" y="88" width="4" height="14" fill="#F8FAFC" />
             <circle cx="176" cy="85" r="3" fill="#FBBF24" />
             <rect x="222" y="88" width="4" height="14" fill="#F8FAFC" />
@@ -3805,19 +904,15 @@ function QuestIllustration({ questNumber, outcome = null }) {
           </g>
         )}
 
-        {/* BAB III: JEMBATAN KABUT DANAU AVALON */}
         {q === 3 && (
           <g>
-            {/* Permukaan Danau Mistis */}
             <rect x="0" y="92" width="400" height="43" fill="#0F172A" />
-            {/* Jembatan Batu Melengkung */}
             <path
               d="M40,102 Q200,46 360,102 L360,114 Q200,62 40,114 Z"
               fill="#475569"
               stroke="#94A3B8"
               strokeWidth="1"
             />
-            {/* Pedang Excalibur Muncul di Tengah Danau */}
             <circle
               cx="200"
               cy="62"
@@ -3830,24 +925,12 @@ function QuestIllustration({ questNumber, outcome = null }) {
               fill={isFail ? '#C084FC' : '#E0F2FE'}
             />
             <rect x="192" y="64" width="16" height="3" fill="#FBBF24" />
-            {/* Riak Air */}
-            <ellipse
-              cx="200"
-              cy="112"
-              rx="52"
-              ry="5"
-              fill="none"
-              stroke="#38BDF8"
-              strokeWidth="1"
-              opacity="0.6"
-            />
+            <ellipse cx="200" cy="112" rx="52" ry="5" fill="none" stroke="#38BDF8" strokeWidth="1" opacity="0.6" />
           </g>
         )}
 
-        {/* BAB IV: PENGEPUNGAN BENTENG TINTAGEL */}
         {q === 4 && (
           <g>
-            {/* Kilatan Petir di Langit Badai */}
             <polyline
               points="115,6 102,42 118,42 98,78"
               fill="none"
@@ -3860,27 +943,11 @@ function QuestIllustration({ questNumber, outcome = null }) {
               stroke="#E0F2FE"
               strokeWidth="2"
             />
-            {/* Tebing Karang & Benteng Tintagel */}
             <polygon points="85,135 125,74 275,74 315,135" fill="#09090B" />
-            <rect
-              x="150"
-              y="42"
-              width="100"
-              height="36"
-              fill="#1E293B"
-              stroke="#475569"
-            />
+            <rect x="150" y="42" width="100" height="36" fill="#1E293B" stroke="#475569" />
             <rect x="144" y="32" width="18" height="46" fill="#334155" />
             <rect x="238" y="32" width="18" height="46" fill="#334155" />
-            {/* Panji Kerajaan di Puncak */}
-            <line
-              x1="200"
-              y1="16"
-              x2="200"
-              y2="42"
-              stroke="#FBBF24"
-              strokeWidth="2"
-            />
+            <line x1="200" y1="16" x2="200" y2="42" stroke="#FBBF24" strokeWidth="2" />
             <polygon
               points="200,16 222,22 200,28"
               fill={isFail ? '#DC2626' : '#2563EB'}
@@ -3888,10 +955,8 @@ function QuestIllustration({ questNumber, outcome = null }) {
           </g>
         )}
 
-        {/* BAB V: PERTEMPURAN TERAKHIR DI BUKIT CAMLANN */}
         {q === 5 && (
           <g>
-            {/* Matahari Senja Merah / Cahaya Fajar */}
             <circle
               cx="200"
               cy="88"
@@ -3899,34 +964,16 @@ function QuestIllustration({ questNumber, outcome = null }) {
               fill={isSuccess ? '#FDE047' : '#EF4444'}
               opacity="0.75"
             />
-            {/* Bukit Camlann */}
             <path d="M0,135 Q200,72 400,135 Z" fill="#09090B" />
-            {/* Tombak & Panji Pertempuran */}
-            <line
-              x1="145"
-              y1="54"
-              x2="155"
-              y2="112"
-              stroke="#94A3B8"
-              strokeWidth="2"
-            />
+            <line x1="145" y1="54" x2="155" y2="112" stroke="#94A3B8" strokeWidth="2" />
             <polygon points="145,54 125,62 146,68" fill="#2563EB" />
-            <line
-              x1="255"
-              y1="54"
-              x2="245"
-              y2="112"
-              stroke="#94A3B8"
-              strokeWidth="2"
-            />
+            <line x1="255" y1="54" x2="245" y2="112" stroke="#94A3B8" strokeWidth="2" />
             <polygon points="255,54 275,62 254,68" fill="#DC2626" />
-            {/* Pedang Tertancap di Puncak Bukit */}
             <polygon points="200,56 203,95 197,95" fill="#F8FAFC" />
             <rect x="192" y="66" width="16" height="3" fill="#FBBF24" />
           </g>
         )}
 
-        {/* Lencana Status Hasil Jika Ini Kartu Epilog */}
         {outcome && (
           <g transform="translate(12, 10)">
             <rect
@@ -3976,9 +1023,7 @@ function QuestChapterCard({ questNumber, needsTwoFails }) {
               </span>
             )}
           </div>
-          <h3 className="text-base font-extrabold text-white mt-1">
-            {story.title}
-          </h3>
+          <h3 className="text-base font-extrabold text-white mt-1">{story.title}</h3>
         </div>
 
         <button
@@ -3987,11 +1032,7 @@ function QuestChapterCard({ questNumber, needsTwoFails }) {
           className="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 shrink-0"
         >
           <span>{collapsed ? 'Cerita' : 'Tutup'}</span>
-          {collapsed ? (
-            <ChevronDown className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronUp className="w-3.5 h-3.5" />
-          )}
+          {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
       </div>
 
@@ -4011,10 +1052,9 @@ function QuestEpilogueCard({ reveal }) {
   const story = QUEST_STORIES[reveal.questNumber] || QUEST_STORIES[1];
   const isSuccess = reveal.status === 'SUCCESS';
 
-  // Buat daftar kartu teracak untuk ditampilkan secara visual
   const cards = [
     ...Array(reveal.successCount || 0).fill('SUCCESS'),
-    ...Array(reveal.failCount || 0).fill('FAIL'),
+    ...Array(reveal.failCount || 0).fill('FAIL')
   ];
 
   return (
@@ -4045,12 +1085,8 @@ function QuestEpilogueCard({ reveal }) {
         </span>
       </div>
 
-      <QuestIllustration
-        questNumber={reveal.questNumber}
-        outcome={reveal.status}
-      />
+      <QuestIllustration questNumber={reveal.questNumber} outcome={reveal.status} />
 
-      {/* Pembukaan Kartu Misi Rahasia */}
       <div className="flex items-center justify-center gap-2.5 py-1 flex-wrap">
         {cards.map((cardType, idx) => (
           <div
@@ -4084,17 +1120,2018 @@ function QuestEpilogueCard({ reveal }) {
 }
 
 // ============================================================================
+// KOMPONEN UTAMA APLIKASI MULTIPLAYER AVALON
+// ============================================================================
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  // Profil lokal & ruangan aktif
+  const [playerName, setPlayerName] = useState(() => {
+    try {
+      return localStorage.getItem('avalon_player_name') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [activeRoomCode, setActiveRoomCode] = useState(() => {
+    try {
+      return localStorage.getItem('avalon_active_room') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [roomData, setRoomData] = useState(null);
+  const [loadingRoom, setLoadingRoom] = useState(false);
+
+  // UI & Modal state
+  const [toast, setToast] = useState(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [roleCardOpen, setRoleCardOpen] = useState(false);
+  const [showGrimoireModal, setShowGrimoireModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [selectedTeamDraft, setSelectedTeamDraft] = useState([]);
+  const [selectedAssassinTarget, setSelectedAssassinTarget] = useState('');
+  const [busyAction, setBusyAction] = useState(false);
+
+  const botLockRef = useRef(false);
+  const latestRoomRef = useRef(null);
+  latestRoomRef.current = roomData;
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type, id: Date.now() });
+  };
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // 1. Autentikasi Firebase Anonim (Tahan Konflik Custom Token)
+  useEffect(() => {
+    let mounted = true;
+    const initAuth = async () => {
+      try {
+        await signInAnonymously(auth);
+      } catch (err) {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          try {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } catch (e) {
+            console.error('Auth error:', e);
+          }
+        } else {
+          console.error('Auth error:', err);
+        }
+      }
+    };
+    initAuth();
+
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (!mounted) return;
+      setUser(u);
+      setAuthReady(true);
+    });
+    return () => {
+      mounted = false;
+      unsub();
+    };
+  }, []);
+
+  // Simpan nama pemain secara lokal
+  useEffect(() => {
+    try {
+      localStorage.setItem('avalon_player_name', playerName);
+    } catch {}
+  }, [playerName]);
+
+  // 2. Langganan Real-time Dokumen Ruangan Firestore
+  useEffect(() => {
+    if (!authReady || !user || !activeRoomCode) {
+      setRoomData(null);
+      return;
+    }
+
+    setLoadingRoom(true);
+    const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', activeRoomCode);
+    const unsub = onSnapshot(
+      roomRef,
+      (snap) => {
+        setLoadingRoom(false);
+        if (!snap.exists()) {
+          setRoomData(null);
+          setActiveRoomCode('');
+          try {
+            localStorage.removeItem('avalon_active_room');
+          } catch {}
+          showToast('Ruangan telah ditutup atau tidak ditemukan.', 'error');
+          return;
+        }
+        const data = snap.data();
+        const stillInRoom = (data.players || []).some((p) => p.id === user.uid);
+        if (!stillInRoom) {
+          setRoomData(null);
+          setActiveRoomCode('');
+          try {
+            localStorage.removeItem('avalon_active_room');
+          } catch {}
+          showToast('Kamu telah keluar atau dikeluarkan dari ruangan.', 'info');
+          return;
+        }
+        setRoomData(data);
+      },
+      (err) => {
+        setLoadingRoom(false);
+        console.error('Firestore snapshot error:', err);
+        showToast('Gagal menyinkronkan ruangan. Periksa koneksi internet.', 'error');
+      }
+    );
+
+    return () => unsub();
+  }, [authReady, user, activeRoomCode]);
+
+  // Sinkronkan draft tim saat fase penunjukan berganti
+  useEffect(() => {
+    if (!roomData) return;
+    if (roomData.phase === 'TEAM_PROPOSAL') {
+      setSelectedTeamDraft(roomData.proposedTeam || []);
+    } else {
+      setSelectedTeamDraft([]);
+    }
+    if (roomData.phase !== 'ASSASSINATION') {
+      setSelectedAssassinTarget('');
+    }
+  }, [roomData?.phase, roomData?.currentQuest, roomData?.leaderIndex]);
+
+  // Derivasi status permainan
+  const players = roomData?.players || [];
+  const me = useMemo(
+    () => players.find((p) => p.id === user?.uid) || null,
+    [players, user?.uid]
+  );
+  const isHost = roomData?.hostId === user?.uid;
+  const playerCount = players.length;
+  const matrix = PLAYER_MATRIX[playerCount] || PLAYER_MATRIX[5];
+
+  const currentQuestIndex = (roomData?.currentQuest || 1) - 1;
+  const requiredTeamSize = matrix.quests[currentQuestIndex] || 2;
+  const needsTwoFails = roomData?.currentQuest === 4 && matrix.twoFailsQuest4;
+  const leader = players[roomData?.leaderIndex || 0] || players[0];
+  const isLeader = leader?.id === user?.uid;
+
+  const myVision = useMemo(() => computePlayerVision(me, players), [me, players]);
+
+  // ============================================================================
+  // LOGIKA EVALUASI VOTING & MISI
+  // ============================================================================
+  const evaluateTeamVotes = useCallback(async (roomRef, currentRoom, updatedVotes) => {
+    const allPlayers = currentRoom.players || [];
+    if (Object.keys(updatedVotes).length < allPlayers.length) {
+      await updateDoc(roomRef, { votes: updatedVotes });
+      return;
+    }
+
+    let approveCount = 0;
+    let rejectCount = 0;
+    Object.values(updatedVotes).forEach((v) => {
+      if (v === 'APPROVE') approveCount++;
+      else rejectCount++;
+    });
+
+    const approved = approveCount > rejectCount;
+    const voteSummary = {
+      questNumber: currentRoom.currentQuest,
+      proposalNumber: (currentRoom.rejectedCount || 0) + 1,
+      approved,
+      approveCount,
+      rejectCount,
+      votes: updatedVotes
+    };
+
+    if (approved) {
+      await updateDoc(roomRef, {
+        votes: updatedVotes,
+        lastVoteResult: voteSummary,
+        phase: 'QUEST_EXECUTION',
+        questActions: {},
+        lastQuestReveal: null
+      });
+    } else {
+      const nextRejectedCount = (currentRoom.rejectedCount || 0) + 1;
+      if (nextRejectedCount >= 5) {
+        await updateDoc(roomRef, {
+          votes: updatedVotes,
+          lastVoteResult: voteSummary,
+          rejectedCount: nextRejectedCount,
+          phase: 'GAME_OVER',
+          winner: 'EVIL',
+          winReason:
+            '5 proposal tim ditolak berturut-turut! Camelot jatuh ke dalam kekacauan dan Kubu Mordred menang.'
+        });
+      } else {
+        const nextLeaderIndex = ((currentRoom.leaderIndex || 0) + 1) % allPlayers.length;
+        await updateDoc(roomRef, {
+          votes: updatedVotes,
+          lastVoteResult: voteSummary,
+          rejectedCount: nextRejectedCount,
+          leaderIndex: nextLeaderIndex,
+          proposedTeam: [],
+          phase: 'TEAM_PROPOSAL'
+        });
+      }
+    }
+  }, []);
+
+  const evaluateQuestActions = useCallback(async (roomRef, currentRoom, updatedActions) => {
+    const team = currentRoom.proposedTeam || [];
+    if (Object.keys(updatedActions).length < team.length) {
+      await updateDoc(roomRef, { questActions: updatedActions });
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    Object.values(updatedActions).forEach((act) => {
+      if (act === 'SUCCESS') successCount++;
+      else failCount++;
+    });
+
+    const allPlayers = currentRoom.players || [];
+    const roomMatrix = PLAYER_MATRIX[allPlayers.length] || PLAYER_MATRIX[5];
+    const qNum = currentRoom.currentQuest || 1;
+    const reqFails = qNum === 4 && roomMatrix.twoFailsQuest4 ? 2 : 1;
+    const questSucceeded = failCount < reqFails;
+
+    const updatedResults = [...(currentRoom.questResults || [])];
+    updatedResults[qNum - 1] = questSucceeded ? 'SUCCESS' : 'FAIL';
+
+    const teamNames = team.map(
+      (pid) => allPlayers.find((p) => p.id === pid)?.name || 'Ksatria'
+    );
+
+    const questReveal = {
+      questNumber: qNum,
+      status: questSucceeded ? 'SUCCESS' : 'FAIL',
+      successCount,
+      failCount,
+      teamNames
+    };
+
+    const totalSuccess = updatedResults.filter((r) => r === 'SUCCESS').length;
+    const totalFail = updatedResults.filter((r) => r === 'FAIL').length;
+
+    if (totalFail >= 3) {
+      await updateDoc(roomRef, {
+        questActions: updatedActions,
+        questResults: updatedResults,
+        lastQuestReveal: questReveal,
+        phase: 'GAME_OVER',
+        winner: 'EVIL',
+        winReason:
+          '3 Misi berhasil disabotase! Pasukan kegelapan Mordred menguasai Camelot.'
+      });
+      return;
+    }
+
+    if (totalSuccess >= 3) {
+      const hasMerlinAndAssassin =
+        currentRoom.settings?.merlin &&
+        allPlayers.some((p) => p.role === 'ASSASSIN') &&
+        allPlayers.some((p) => p.role === 'MERLIN');
+
+      if (hasMerlinAndAssassin) {
+        await updateDoc(roomRef, {
+          questActions: updatedActions,
+          questResults: updatedResults,
+          lastQuestReveal: questReveal,
+          phase: 'ASSASSINATION'
+        });
+      } else {
+        await updateDoc(roomRef, {
+          questActions: updatedActions,
+          questResults: updatedResults,
+          lastQuestReveal: questReveal,
+          phase: 'GAME_OVER',
+          winner: 'GOOD',
+          winReason:
+            'Kubu Setia Raja Arthur berhasil menuntaskan 3 Misi dengan gemilang!'
+        });
+      }
+      return;
+    }
+
+    const nextLeaderIndex = ((currentRoom.leaderIndex || 0) + 1) % allPlayers.length;
+    await updateDoc(roomRef, {
+      questActions: updatedActions,
+      questResults: updatedResults,
+      lastQuestReveal: questReveal,
+      currentQuest: qNum + 1,
+      rejectedCount: 0,
+      leaderIndex: nextLeaderIndex,
+      proposedTeam: [],
+      votes: {},
+      phase: 'TEAM_PROPOSAL'
+    });
+  }, []);
+
+  // ============================================================================
+  // EKSEKUTOR AKSI BOT OTOMATIS & MANUAL FALLBACK (MENCEGAH MISI MACET)
+  // ============================================================================
+  const runBotTurnStep = useCallback(async () => {
+    const currentRoom = latestRoomRef.current;
+    if (!currentRoom || botLockRef.current) return;
+
+    const allPlayers = currentRoom.players || [];
+    const bots = allPlayers.filter((p) => p.isBot);
+    if (bots.length === 0) return;
+
+    const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', currentRoom.code);
+    const roomMatrix = PLAYER_MATRIX[allPlayers.length] || PLAYER_MATRIX[5];
+    const reqSize = roomMatrix.quests[(currentRoom.currentQuest || 1) - 1] || 2;
+    const currentLeader = allPlayers[currentRoom.leaderIndex || 0] || allPlayers[0];
+
+    try {
+      // 1. Ketua Misi adalah Bot -> pilih tim otomatis
+      if (currentRoom.phase === 'TEAM_PROPOSAL' && currentLeader?.isBot) {
+        botLockRef.current = true;
+        const pool = shuffleArray(allPlayers);
+        const picked = [currentLeader.id];
+        for (const candidate of pool) {
+          if (picked.length >= reqSize) break;
+          if (!picked.includes(candidate.id)) picked.push(candidate.id);
+        }
+        await updateDoc(roomRef, {
+          proposedTeam: picked,
+          phase: 'TEAM_VOTE',
+          votes: {}
+        });
+        botLockRef.current = false;
+        return;
+      }
+
+      // 2. Fase Voting Tim -> bot yang belum vote otomatis memberi suara
+      if (currentRoom.phase === 'TEAM_VOTE') {
+        const votes = { ...(currentRoom.votes || {}) };
+        const pendingBots = bots.filter((b) => !votes[b.id]);
+        if (pendingBots.length > 0) {
+          botLockRef.current = true;
+          for (const b of pendingBots) {
+            votes[b.id] = Math.random() < 0.8 ? 'APPROVE' : 'REJECT';
+          }
+          await evaluateTeamVotes(roomRef, currentRoom, votes);
+          botLockRef.current = false;
+          return;
+        }
+      }
+
+      // 3. Fase Eksekusi Misi -> anggota tim yang merupakan bot mengirim kartu
+      if (currentRoom.phase === 'QUEST_EXECUTION') {
+        const proposedTeam = currentRoom.proposedTeam || [];
+        const questActions = { ...(currentRoom.questActions || {}) };
+        const pendingTeamBots = bots.filter(
+          (b) => proposedTeam.includes(b.id) && !questActions[b.id]
+        );
+        if (pendingTeamBots.length > 0) {
+          botLockRef.current = true;
+          for (const b of pendingTeamBots) {
+            const isEvil = ['ASSASSIN', 'MORGANA', 'MORDRED', 'OBERON', 'MINION'].includes(b.role);
+            questActions[b.id] = isEvil && Math.random() < 0.75 ? 'FAIL' : 'SUCCESS';
+          }
+          await evaluateQuestActions(roomRef, currentRoom, questActions);
+          botLockRef.current = false;
+          return;
+        }
+      }
+
+      // 4. Fase Pembunuhan dan Assassin adalah Bot
+      if (currentRoom.phase === 'ASSASSINATION') {
+        const assassin = allPlayers.find((p) => p.role === 'ASSASSIN');
+        if (assassin?.isBot) {
+          botLockRef.current = true;
+          const goodCandidates = allPlayers.filter((p) =>
+            ['MERLIN', 'PERCIVAL', 'LOYAL_SERVANT'].includes(p.role)
+          );
+          const target =
+            goodCandidates[Math.floor(Math.random() * goodCandidates.length)] || allPlayers[0];
+          const killedMerlin = target.role === 'MERLIN';
+          await updateDoc(roomRef, {
+            phase: 'GAME_OVER',
+            winner: killedMerlin ? 'EVIL' : 'GOOD',
+            winReason: killedMerlin
+              ? `Assassin (${assassin.name}) berhasil menebak dan membunuh Merlin (${target.name})!`
+              : `Assassin (${assassin.name}) salah menembak ${target.name}. Merlin selamat dan Kubu Arthur menang!`,
+            assassinatedId: target.id
+          });
+          botLockRef.current = false;
+        }
+      }
+    } catch (err) {
+      console.error('Bot automation error:', err);
+      botLockRef.current = false;
+    }
+  }, [evaluateTeamVotes, evaluateQuestActions]);
+
+  // Pemicu otomatis setiap kali state ruangan berubah (untuk Host)
+  useEffect(() => {
+    if (!roomData || !isHost) return;
+    const hasBots = (roomData.players || []).some((p) => p.isBot);
+    if (!hasBots) return;
+
+    const timer = setTimeout(() => {
+      runBotTurnStep();
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [roomData, isHost, runBotTurnStep]);
+
+  // Deteksi apakah saat ini sedang menunggu aksi dari Bot (agar Host bisa melihat status / mempercepat jika perlu)
+  const isWaitingForBot = useMemo(() => {
+    if (!roomData) return false;
+    if (roomData.phase === 'TEAM_PROPOSAL') return Boolean(leader?.isBot);
+    if (roomData.phase === 'TEAM_VOTE') {
+      return players.some((p) => p.isBot && !roomData.votes?.[p.id]);
+    }
+    if (roomData.phase === 'QUEST_EXECUTION') {
+      const team = roomData.proposedTeam || [];
+      return players.some((p) => p.isBot && team.includes(p.id) && !roomData.questActions?.[p.id]);
+    }
+    if (roomData.phase === 'ASSASSINATION') {
+      const assassin = players.find((p) => p.role === 'ASSASSIN');
+      return Boolean(assassin?.isBot);
+    }
+    return false;
+  }, [roomData, leader, players]);
+
+  // ============================================================================
+  // AKSI PENGGUNA (BUAT RUANGAN, GABUNG, LOBI, VOTING, MISI, ASSASSIN)
+  // ============================================================================
+  const handleCreateRoom = async (e) => {
+    e?.preventDefault();
+    const trimmedName = playerName.trim();
+    if (!trimmedName) {
+      showToast('Masukkan namamu terlebih dahulu!', 'error');
+      return;
+    }
+    if (!user) {
+      showToast('Menghubungkan ke server, coba sesaat lagi...', 'info');
+      return;
+    }
+
+    setBusyAction(true);
+    try {
+      let code = generateRoomCode();
+      let roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', code);
+      const existing = await getDoc(roomRef);
+      if (existing.exists()) {
+        code = generateRoomCode();
+        roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', code);
+      }
+
+      const initialRoom = {
+        code,
+        hostId: user.uid,
+        phase: 'LOBBY',
+        createdAt: Date.now(),
+        settings: {
+          merlin: true,
+          percival: true,
+          morgana: true,
+          mordred: false,
+          oberon: false
+        },
+        players: [
+          {
+            id: user.uid,
+            name: trimmedName,
+            isBot: false,
+            role: null
+          }
+        ],
+        currentQuest: 1,
+        questResults: [null, null, null, null, null],
+        leaderIndex: 0,
+        rejectedCount: 0,
+        proposedTeam: [],
+        votes: {},
+        questActions: {},
+        lastVoteResult: null,
+        lastQuestReveal: null,
+        winner: null,
+        winReason: '',
+        assassinatedId: null
+      };
+
+      await setDoc(roomRef, initialRoom);
+      setActiveRoomCode(code);
+      try {
+        localStorage.setItem('avalon_active_room', code);
+      } catch {}
+      showToast(`Ruangan ${code} berhasil dibuat!`, 'success');
+    } catch (err) {
+      console.error('Create room error:', err);
+      showToast('Gagal membuat ruangan. Pastikan Firestore aktif.', 'error');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleJoinRoom = async (e) => {
+    e?.preventDefault();
+    const trimmedName = playerName.trim();
+    const code = roomCodeInput.trim().toUpperCase();
+
+    if (!trimmedName) {
+      showToast('Masukkan namamu terlebih dahulu!', 'error');
+      return;
+    }
+    if (code.length !== 4) {
+      showToast('Masukkan 4 digit kode ruangan!', 'error');
+      return;
+    }
+    if (!user) {
+      showToast('Menghubungkan ke server, coba sesaat lagi...', 'info');
+      return;
+    }
+
+    setBusyAction(true);
+    try {
+      const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', code);
+      const snap = await getDoc(roomRef);
+      if (!snap.exists()) {
+        showToast(`Ruangan "${code}" tidak ditemukan.`, 'error');
+        setBusyAction(false);
+        return;
+      }
+
+      const data = snap.data();
+      const existingPlayer = (data.players || []).find((p) => p.id === user.uid);
+
+      if (existingPlayer) {
+        const updatedPlayers = data.players.map((p) =>
+          p.id === user.uid ? { ...p, name: trimmedName } : p
+        );
+        await updateDoc(roomRef, { players: updatedPlayers });
+      } else {
+        if (data.phase !== 'LOBBY') {
+          showToast('Permainan di ruangan ini sudah dimulai!', 'error');
+          setBusyAction(false);
+          return;
+        }
+        if ((data.players || []).length >= 10) {
+          showToast('Ruangan sudah penuh (maksimal 10 pemain).', 'error');
+          setBusyAction(false);
+          return;
+        }
+        const updatedPlayers = [
+          ...(data.players || []),
+          { id: user.uid, name: trimmedName, isBot: false, role: null }
+        ];
+        await updateDoc(roomRef, { players: updatedPlayers });
+      }
+
+      setActiveRoomCode(code);
+      try {
+        localStorage.setItem('avalon_active_room', code);
+      } catch {}
+      showToast(`Berhasil bergabung ke ruangan ${code}!`, 'success');
+    } catch (err) {
+      console.error('Join room error:', err);
+      showToast('Gagal bergabung ke ruangan.', 'error');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleLeaveRoom = async () => {
+    if (!roomData || !user) {
+      setActiveRoomCode('');
+      return;
+    }
+
+    try {
+      const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+      const remaining = players.filter((p) => p.id !== user.uid);
+      const humanRemaining = remaining.filter((p) => !p.isBot);
+
+      if (humanRemaining.length === 0) {
+        await deleteDoc(roomRef);
+      } else {
+        const nextHostId =
+          roomData.hostId === user.uid ? humanRemaining[0].id : roomData.hostId;
+        await updateDoc(roomRef, {
+          players: remaining,
+          hostId: nextHostId
+        });
+      }
+    } catch (err) {
+      console.error('Leave room error:', err);
+    } finally {
+      setActiveRoomCode('');
+      setRoomData(null);
+      try {
+        localStorage.removeItem('avalon_active_room');
+      } catch {}
+    }
+  };
+
+  const handleAddBot = async () => {
+    if (!isHost || !roomData || players.length >= 10) return;
+    const botNames = [
+      'Sir Lancelot (Bot)',
+      'Lady Guinevere (Bot)',
+      'Sir Gawain (Bot)',
+      'Sir Tristan (Bot)',
+      'Sir Galahad (Bot)',
+      'Sir Bors (Bot)',
+      'Sir Kay (Bot)',
+      'Sir Bedivere (Bot)',
+      'Sir Gareth (Bot)'
+    ];
+    const usedNames = new Set(players.map((p) => p.name));
+    const nextName =
+      botNames.find((n) => !usedNames.has(n)) || `Ksatria Bot #${players.length + 1}`;
+    const newBot = {
+      id: `bot_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      name: nextName,
+      isBot: true,
+      role: null
+    };
+
+    const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+    await updateDoc(roomRef, {
+      players: [...players, newBot]
+    });
+  };
+
+  const handleRemovePlayer = async (targetId) => {
+    if (!isHost || !roomData || targetId === user?.uid) return;
+    const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+    await updateDoc(roomRef, {
+      players: players.filter((p) => p.id !== targetId)
+    });
+  };
+
+  const handleToggleSetting = async (key) => {
+    if (!isHost || !roomData) return;
+    const nextSettings = {
+      ...roomData.settings,
+      [key]: !roomData.settings[key]
+    };
+    if (key === 'merlin' && !nextSettings.merlin) {
+      nextSettings.percival = false;
+    }
+    if (key === 'percival' && nextSettings.percival) {
+      nextSettings.merlin = true;
+    }
+    const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+    await updateDoc(roomRef, { settings: nextSettings });
+  };
+
+  const handleStartGame = async () => {
+    if (!isHost || !roomData) return;
+    if (players.length < 5 || players.length > 10) {
+      showToast('Jumlah pemain harus antara 5 hingga 10 orang!', 'error');
+      return;
+    }
+
+    setBusyAction(true);
+    try {
+      const shuffledPlayers = shuffleArray(players);
+      const rolePool = buildRolePool(shuffledPlayers.length, roomData.settings || {});
+      const assignedPlayers = shuffledPlayers.map((p, idx) => ({
+        ...p,
+        role: rolePool[idx]
+      }));
+
+      const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+      await updateDoc(roomRef, {
+        players: assignedPlayers,
+        phase: 'TEAM_PROPOSAL',
+        currentQuest: 1,
+        questResults: [null, null, null, null, null],
+        leaderIndex: 0,
+        rejectedCount: 0,
+        proposedTeam: [],
+        votes: {},
+        questActions: {},
+        lastVoteResult: null,
+        lastQuestReveal: null,
+        winner: null,
+        winReason: '',
+        assassinatedId: null
+      });
+      setRoleCardOpen(true);
+    } catch (err) {
+      console.error('Start game error:', err);
+      showToast('Gagal memulai permainan.', 'error');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const toggleDraftMember = (pid) => {
+    if (!isLeader || roomData?.phase !== 'TEAM_PROPOSAL') return;
+    if (selectedTeamDraft.includes(pid)) {
+      setSelectedTeamDraft(selectedTeamDraft.filter((id) => id !== pid));
+    } else {
+      if (selectedTeamDraft.length >= requiredTeamSize) {
+        showToast(`Misi ini hanya membutuhkan ${requiredTeamSize} anggota tim.`, 'info');
+        return;
+      }
+      setSelectedTeamDraft([...selectedTeamDraft, pid]);
+    }
+  };
+
+  const handleConfirmProposal = async () => {
+    if (!isLeader || selectedTeamDraft.length !== requiredTeamSize || !roomData) return;
+    setBusyAction(true);
+    try {
+      const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+      await updateDoc(roomRef, {
+        proposedTeam: selectedTeamDraft,
+        phase: 'TEAM_VOTE',
+        votes: {}
+      });
+    } catch (err) {
+      console.error('Propose team error:', err);
+      showToast('Gagal mengajukan tim misi.', 'error');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleCastVote = async (choice) => {
+    if (!roomData || !user || roomData.phase !== 'TEAM_VOTE') return;
+    if (roomData.votes?.[user.uid]) return;
+
+    setBusyAction(true);
+    try {
+      const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+      const updatedVotes = {
+        ...(roomData.votes || {}),
+        [user.uid]: choice
+      };
+      await evaluateTeamVotes(roomRef, roomData, updatedVotes);
+    } catch (err) {
+      console.error('Vote error:', err);
+      showToast('Gagal mengirim suara voting.', 'error');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleCastQuestAction = async (actionChoice) => {
+    if (!roomData || !user || roomData.phase !== 'QUEST_EXECUTION') return;
+    const isOnTeam = (roomData.proposedTeam || []).includes(user.uid);
+    if (!isOnTeam || roomData.questActions?.[user.uid]) return;
+
+    const myRoleDef = ROLE_DEFINITIONS[me?.role];
+    if (myRoleDef?.alignment === 'GOOD' && actionChoice === 'FAIL') {
+      showToast('Ksatria Kubu Arthur hanya dapat menyukseskan misi!', 'error');
+      return;
+    }
+
+    setBusyAction(true);
+    try {
+      const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+      const updatedActions = {
+        ...(roomData.questActions || {}),
+        [user.uid]: actionChoice
+      };
+      await evaluateQuestActions(roomRef, roomData, updatedActions);
+    } catch (err) {
+      console.error('Quest action error:', err);
+      showToast('Gagal mengirim kartu misi.', 'error');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleAssassinate = async () => {
+    if (!roomData || me?.role !== 'ASSASSIN' || !selectedAssassinTarget) return;
+    setBusyAction(true);
+    try {
+      const target = players.find((p) => p.id === selectedAssassinTarget);
+      const killedMerlin = target?.role === 'MERLIN';
+      const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+
+      await updateDoc(roomRef, {
+        phase: 'GAME_OVER',
+        winner: killedMerlin ? 'EVIL' : 'GOOD',
+        winReason: killedMerlin
+          ? `Assassin (${me.name}) berhasil menebak dan membunuh Merlin (${target?.name})! Kemenangan direbut Kubu Mordred!`
+          : `Assassin (${me.name}) salah menembak ${target?.name}. Merlin selamat dan Kubu Setia Arthur menang!`,
+        assassinatedId: selectedAssassinTarget
+      });
+    } catch (err) {
+      console.error('Assassination error:', err);
+      showToast('Gagal melakukan eksekusi Assassin.', 'error');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleReturnToLobby = async () => {
+    if (!isHost || !roomData) return;
+    const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+    await updateDoc(roomRef, {
+      phase: 'LOBBY',
+      players: players.map((p) => ({ ...p, role: null })),
+      currentQuest: 1,
+      questResults: [null, null, null, null, null],
+      leaderIndex: 0,
+      rejectedCount: 0,
+      proposedTeam: [],
+      votes: {},
+      questActions: {},
+      lastVoteResult: null,
+      lastQuestReveal: null,
+      winner: null,
+      winReason: '',
+      assassinatedId: null
+    });
+    setRoleCardOpen(false);
+  };
+
+  const copyRoomCode = () => {
+    if (!roomData?.code) return;
+    navigator.clipboard?.writeText(roomData.code);
+    setCopiedCode(true);
+    showToast(`Kode ruangan ${roomData.code} disalin!`, 'success');
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  // ============================================================================
+  // TAMPILAN 1: BERANDA (BUAT RUANGAN / GABUNG LEWAT KODE)
+  // ============================================================================
+  if (!activeRoomCode || (!roomData && !loadingRoom)) {
+    return (
+      <div className="min-h-screen bg-[#0B1120] text-slate-100 flex flex-col justify-between p-4 sm:p-6">
+        {toast && (
+          <div
+            className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl border text-xs sm:text-sm font-semibold flex items-center gap-2 max-w-[92vw] ${
+              toast.type === 'error'
+                ? 'bg-red-950/95 border-red-500 text-red-100'
+                : toast.type === 'success'
+                ? 'bg-emerald-950/95 border-emerald-500 text-emerald-100'
+                : 'bg-slate-900/95 border-amber-500/60 text-amber-100'
+            }`}
+          >
+            <Info className="w-4 h-4 shrink-0" />
+            <span>{toast.message}</span>
+          </div>
+        )}
+
+        <div className="w-full max-w-md mx-auto my-auto space-y-6">
+          <div className="text-center space-y-2.5">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/20 mb-1">
+              <Crown className="w-9 h-9" />
+            </div>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-400">
+              The Resistance
+            </p>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+              AVALON
+            </h1>
+            <p className="text-sm text-slate-400 max-w-xs mx-auto leading-relaxed">
+              Permainan deduksi sosial penuh intrik. Mainkan langsung lewat browser ponsel masing-masing!
+            </p>
+
+            <div className="flex items-center justify-center gap-1.5 pt-2 flex-wrap">
+              {['MERLIN', 'PERCIVAL', 'ASSASSIN', 'MORGANA', 'MORDRED'].map((rId) => (
+                <CharacterPortrait key={rId} roleId={rId} size="xs" />
+              ))}
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowGrimoireModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Kitab Karakter</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition"
+              >
+                <HelpCircle className="w-4 h-4 text-blue-400" />
+                <span>Cara Main</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#1E293B] border border-slate-700/80 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-5">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
+                Nama Ksatria / Pemain
+              </label>
+              <input
+                type="text"
+                maxLength={18}
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Contoh: Arthur, Budi, Siti..."
+                className="w-full px-4 py-3.5 rounded-xl bg-[#0B1120] border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 text-base font-medium"
+              />
+            </div>
+
+            <button
+              type="button"
+              disabled={busyAction || !authReady}
+              onClick={handleCreateRoom}
+              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition active:scale-[0.99]"
+            >
+              <Crown className="w-5 h-5" />
+              <span>Buat Ruangan Baru</span>
+            </button>
+
+            <div className="relative flex items-center py-1">
+              <div className="flex-grow border-t border-slate-700" />
+              <span className="shrink mx-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                atau gabung ruangan
+              </span>
+              <div className="flex-grow border-t border-slate-700" />
+            </div>
+
+            <form onSubmit={handleJoinRoom} className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={roomCodeInput}
+                  onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                  placeholder="KODE"
+                  className="w-32 sm:w-36 px-3 py-3.5 rounded-xl bg-[#0B1120] border border-slate-700 text-center text-amber-400 placeholder-slate-600 focus:outline-none focus:border-amber-400 text-lg font-extrabold tracking-[0.25em] uppercase"
+                />
+                <button
+                  type="submit"
+                  disabled={busyAction || !authReady}
+                  className="flex-1 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-base shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 transition active:scale-[0.99]"
+                >
+                  <Users className="w-5 h-5" />
+                  <span>Gabung</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <p className="text-center text-xs text-slate-500">
+            5–10 Pemain • Sinkronisasi Real-Time • Tanpa Instalasi Aplikasi
+          </p>
+        </div>
+
+        {showGrimoireModal && (
+          <CharacterGrimoireModal onClose={() => setShowGrimoireModal(false)} />
+        )}
+        {showRulesModal && <RulesGuideModal onClose={() => setShowRulesModal(false)} />}
+      </div>
+    );
+  }
+
+  // Layar Memuat Ruangan
+  if (loadingRoom && !roomData) {
+    return (
+      <div className="min-h-screen bg-[#0B1120] text-slate-200 flex flex-col items-center justify-center p-6 gap-4">
+        <div className="w-12 h-12 rounded-full border-4 border-amber-400 border-t-transparent animate-spin" />
+        <p className="text-sm font-semibold text-slate-300">
+          Memasuki meja perundingan Avalon ({activeRoomCode})...
+        </p>
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // TAMPILAN 2: RUANG TUNGGU / LOBI (5 - 10 PEMAIN)
+  // ============================================================================
+  if (roomData.phase === 'LOBBY') {
+    const canStart = isHost && playerCount >= 5 && playerCount <= 10;
+
+    return (
+      <div className="min-h-screen bg-[#0B1120] text-slate-100 p-4 sm:p-6 pb-24">
+        {toast && (
+          <div
+            className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl border text-xs sm:text-sm font-semibold flex items-center gap-2 max-w-[92vw] ${
+              toast.type === 'error'
+                ? 'bg-red-950/95 border-red-500 text-red-100'
+                : toast.type === 'success'
+                ? 'bg-emerald-950/95 border-emerald-500 text-emerald-100'
+                : 'bg-slate-900/95 border-amber-500/60 text-amber-100'
+            }`}
+          >
+            <Info className="w-4 h-4 shrink-0" />
+            <span>{toast.message}</span>
+          </div>
+        )}
+
+        <div className="max-w-lg mx-auto space-y-5">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={handleLeaveRoom}
+              className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs font-semibold flex items-center gap-1.5 border border-slate-700"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Keluar</span>
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowGrimoireModal(true)}
+                className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-amber-300 text-xs font-semibold flex items-center gap-1.5 border border-amber-500/40"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Karakter</span>
+              </button>
+              <button
+                onClick={() => setShowRulesModal(true)}
+                className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 text-xs font-semibold flex items-center gap-1.5 border border-slate-700"
+              >
+                <HelpCircle className="w-4 h-4" />
+                <span>Aturan</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#1E293B] border border-amber-500/30 rounded-2xl p-5 text-center shadow-xl space-y-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              Kode Ruangan Mabar
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-4xl font-black tracking-[0.25em] text-amber-400 pl-2">
+                {roomData.code}
+              </span>
+              <button
+                onClick={copyRoomCode}
+                className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-600 transition"
+                title="Salin kode ruangan"
+              >
+                {copiedCode ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Bagikan kode 4 huruf ini ke HP teman-temanmu untuk bergabung
+            </p>
+          </div>
+
+          <div className="bg-[#1E293B] border border-slate-700/80 rounded-2xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                <Users className="w-4 h-4 text-amber-400" />
+                <span>Pemain Terhubung ({playerCount}/10)</span>
+              </h2>
+              {playerCount >= 5 && (
+                <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300">
+                  <span className="text-blue-400">{matrix.good} Baik</span> •{' '}
+                  <span className="text-red-400">{matrix.evil} Jahat</span>
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {players.map((p, idx) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#0B1120]/80 border border-slate-800"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-slate-800 text-slate-400 text-xs font-bold flex items-center justify-center shrink-0">
+                      {idx + 1}
+                    </span>
+                    <span className="font-semibold text-sm text-white truncate">
+                      {p.name}
+                    </span>
+                    {p.id === roomData.hostId && (
+                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-extrabold uppercase">
+                        Host
+                      </span>
+                    )}
+                    {p.id === user?.uid && (
+                      <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold">
+                        Kamu
+                      </span>
+                    )}
+                    {p.isBot && (
+                      <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[10px] font-bold flex items-center gap-1">
+                        <Bot className="w-3 h-3" /> Bot
+                      </span>
+                    )}
+                  </div>
+
+                  {isHost && p.id !== user?.uid && (
+                    <button
+                      onClick={() => handleRemovePlayer(p.id)}
+                      className="p-1.5 text-slate-500 hover:text-red-400 transition"
+                      title="Keluarkan pemain"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {isHost && playerCount < 10 && (
+              <button
+                type="button"
+                onClick={handleAddBot}
+                className="w-full py-2.5 px-3 rounded-xl border border-dashed border-slate-600 hover:border-amber-400/60 text-slate-300 hover:text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Tambah Bot (Tes Solo)</span>
+              </button>
+            )}
+
+            {playerCount < 5 && (
+              <p className="text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
+                Butuh minimal <strong>{5 - playerCount} pemain lagi</strong> (total 5–10 pemain) untuk memulai permainan.
+              </p>
+            )}
+          </div>
+
+          <div className="bg-[#1E293B] border border-slate-700/80 rounded-2xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Peran Spesial</span>
+              </h2>
+              {!isHost && (
+                <span className="text-[11px] text-slate-400">Diatur oleh Host</span>
+              )}
+            </div>
+
+            <div className="space-y-2.5">
+              <RoleToggleRow
+                title="Merlin & Assassin"
+                subtitle="Merlin tahu Kubu Jahat; Assassin menembak Merlin di akhir."
+                badge="Wajib / Standar"
+                portraits={['MERLIN', 'ASSASSIN']}
+                enabled={!!roomData.settings?.merlin}
+                disabled={!isHost}
+                onToggle={() => handleToggleSetting('merlin')}
+              />
+              <RoleToggleRow
+                title="Percival"
+                subtitle="Ksatria baik yang dapat melihat siapa Merlin."
+                badge="Kubu Arthur"
+                portraits={['PERCIVAL']}
+                enabled={!!roomData.settings?.percival}
+                disabled={!isHost}
+                onToggle={() => handleToggleSetting('percival')}
+              />
+              <RoleToggleRow
+                title="Morgana"
+                subtitle="Penyihir jahat yang menyamar sebagai Merlin di mata Percival."
+                badge="Kubu Mordred"
+                portraits={['MORGANA']}
+                enabled={!!roomData.settings?.morgana}
+                disabled={!isHost}
+                onToggle={() => handleToggleSetting('morgana')}
+              />
+              <RoleToggleRow
+                title="Mordred"
+                subtitle="Pemimpin jahat yang tidak terlihat oleh penglihatan Merlin."
+                badge="Kubu Mordred"
+                portraits={['MORDRED']}
+                enabled={!!roomData.settings?.mordred}
+                disabled={!isHost}
+                onToggle={() => handleToggleSetting('mordred')}
+              />
+              <RoleToggleRow
+                title="Oberon"
+                subtitle="Anggota jahat yang tidak saling mengenal dengan Kubu Mordred."
+                badge="Kubu Mordred"
+                portraits={['OBERON']}
+                enabled={!!roomData.settings?.oberon}
+                disabled={!isHost}
+                onToggle={() => handleToggleSetting('oberon')}
+              />
+            </div>
+          </div>
+
+          {isHost ? (
+            <button
+              type="button"
+              disabled={!canStart || busyAction}
+              onClick={handleStartGame}
+              className="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 text-slate-950 font-extrabold text-base shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 transition"
+            >
+              <Play className="w-5 h-5 fill-current" />
+              <span>
+                {canStart
+                  ? `Mulai Permainan (${playerCount} Pemain)`
+                  : `Menunggu Pemain (${playerCount}/5)`}
+              </span>
+            </button>
+          ) : (
+            <div className="p-4 rounded-2xl bg-slate-800/70 border border-slate-700 text-center text-sm text-slate-300 font-medium">
+              Menunggu <strong>Host</strong> memulai permainan...
+            </div>
+          )}
+        </div>
+
+        {showGrimoireModal && (
+          <CharacterGrimoireModal onClose={() => setShowGrimoireModal(false)} />
+        )}
+        {showRulesModal && <RulesGuideModal onClose={() => setShowRulesModal(false)} />}
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // TAMPILAN 3: LAYAR PERMAINAN AKTIF & AKHIR PERMAINAN
+  // ============================================================================
+  const myRoleDef = ROLE_DEFINITIONS[me?.role] || ROLE_DEFINITIONS.LOYAL_SERVANT;
+  const isMyAlignmentGood = myRoleDef.alignment === 'GOOD';
+  const hasVotedTeam = Boolean(roomData.votes?.[user?.uid]);
+  const isOnProposedTeam = (roomData.proposedTeam || []).includes(user?.uid);
+  const hasSubmittedQuestAction = Boolean(roomData.questActions?.[user?.uid]);
+
+  return (
+    <div className="min-h-screen bg-[#0B1120] text-slate-100 pb-24">
+      {toast && (
+        <div
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl shadow-2xl border text-xs sm:text-sm font-semibold flex items-center gap-2 max-w-[92vw] ${
+            toast.type === 'error'
+              ? 'bg-red-950/95 border-red-500 text-red-100'
+              : toast.type === 'success'
+              ? 'bg-emerald-950/95 border-emerald-500 text-emerald-100'
+              : 'bg-slate-900/95 border-amber-500/60 text-amber-100'
+          }`}
+        >
+          <Info className="w-4 h-4 shrink-0" />
+          <span>{toast.message}</span>
+        </div>
+      )}
+
+      {/* Header Bilah Atas */}
+      <header className="sticky top-0 z-30 bg-[#0B1120]/95 backdrop-blur border-b border-slate-800 px-4 py-2.5">
+        <div className="max-w-lg mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="font-extrabold text-xs sm:text-sm tracking-wider text-white truncate">
+              AVALON • {roomData.code}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowGrimoireModal(true)}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-amber-500/30 flex items-center gap-1"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Karakter</span>
+            </button>
+            <button
+              onClick={() => setShowRulesModal(true)}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+              title="Panduan"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleLeaveRoom}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-950 text-slate-400 hover:text-red-300 border border-slate-700"
+              title="Keluar ruangan"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-lg mx-auto p-4 space-y-4">
+        {/* ====================================================================
+            1. KARTU IDENTITAS RAHASIA & PENGLIHATAN BATIN (DESAIN KARTU KARAKTER)
+            ==================================================================== */}
+        <section
+          className={`rounded-2xl border transition overflow-hidden ${
+            roleCardOpen
+              ? isMyAlignmentGood
+                ? 'bg-gradient-to-b from-blue-950/95 via-[#162238] to-[#0F172A] border-amber-400/80 shadow-2xl shadow-blue-950/70'
+                : 'bg-gradient-to-b from-red-950/95 via-[#24131D] to-[#0F172A] border-red-500/80 shadow-2xl shadow-red-950/70'
+              : 'bg-[#1E293B] border-slate-700/80'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setRoleCardOpen(!roleCardOpen)}
+            className="w-full px-4 py-3.5 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              {roleCardOpen ? (
+                <EyeOff className="w-5 h-5 text-amber-400 shrink-0" />
+              ) : (
+                <Eye className="w-5 h-5 text-amber-400 shrink-0" />
+              )}
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-wider text-amber-300">
+                  {roleCardOpen
+                    ? 'Tutup Kartu Identitas Rahasia'
+                    : 'Buka Kartu Identitas & Kekuatanmu'}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {roleCardOpen
+                    ? 'Pastikan layar ponsel tidak diintip pemain lain!'
+                    : `Pemain: ${me?.name || playerName}`}
+                </p>
+              </div>
+            </div>
+            {roleCardOpen ? (
+              <ChevronUp className="w-5 h-5 text-slate-300" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-300" />
+            )}
+          </button>
+
+          {roleCardOpen && me?.role && (
+            <div className="px-4 pb-5 pt-2 border-t border-white/10 space-y-4">
+              {/* Bingkai Kartu Karakter Bergaya Koleksi */}
+              <div
+                className={`rounded-2xl border-2 overflow-hidden shadow-2xl relative ${
+                  isMyAlignmentGood
+                    ? 'border-amber-400 bg-gradient-to-b from-blue-950 to-[#0B1120]'
+                    : 'border-red-500 bg-gradient-to-b from-red-950 to-[#0B1120]'
+                }`}
+              >
+                {/* Header Kartu: Nama & Lencana Kubu */}
+                <div
+                  className={`px-3.5 py-2 flex items-center justify-between border-b ${
+                    isMyAlignmentGood
+                      ? 'bg-blue-900/70 border-amber-400/40'
+                      : 'bg-red-900/70 border-red-500/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    {isMyAlignmentGood ? (
+                      <ShieldCheck className="w-4 h-4 text-amber-300 shrink-0" />
+                    ) : (
+                      <Skull className="w-4 h-4 text-red-300 shrink-0" />
+                    )}
+                    <span className="text-[11px] font-black uppercase tracking-wider text-white">
+                      {myRoleDef.teamLabel}
+                    </span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                      isMyAlignmentGood
+                        ? 'bg-amber-400 text-slate-950'
+                        : 'bg-red-600 text-white'
+                    }`}
+                  >
+                    {isMyAlignmentGood ? 'Kubu Baik' : 'Kubu Jahat'}
+                  </span>
+                </div>
+
+                {/* Ilustrasi Potret Karakter Besar di Dalam Kartu */}
+                <div className="relative">
+                  <CharacterPortrait roleId={me.role} size="card" />
+                  <div className="absolute inset-x-0 bottom-0 p-3.5 bg-gradient-to-t from-[#0B1120] via-[#0B1120]/85 to-transparent">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-amber-300">
+                      {myRoleDef.title}
+                    </p>
+                    <h3 className="text-2xl font-black text-white tracking-tight drop-shadow">
+                      {myRoleDef.name}
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Keterangan Kekuatan & Tips Bermain di Bagian Bawah Kartu */}
+                <div className="p-3.5 space-y-2.5 bg-[#0B1120]/95 border-t border-white/10">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <ScrollText className="w-3.5 h-3.5" />
+                      <span>Kekuatan Karakter</span>
+                    </p>
+                    <p className="text-xs sm:text-sm text-slate-100 leading-relaxed">
+                      {myRoleDef.ability}
+                    </p>
+                  </div>
+
+                  {myRoleDef.strategyTip && (
+                    <div
+                      className={`p-2.5 rounded-xl border text-xs leading-relaxed ${
+                        isMyAlignmentGood
+                          ? 'bg-blue-950/50 border-blue-500/30 text-blue-200'
+                          : 'bg-red-950/50 border-red-500/30 text-red-200'
+                      }`}
+                    >
+                      <strong className="font-extrabold">Strategi: </strong>
+                      {myRoleDef.strategyTip}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Kotak Penglihatan Batin */}
+              <div className="p-3.5 rounded-xl bg-black/50 border border-amber-500/30 space-y-2">
+                <p className="text-xs font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4" />
+                  <span>{myVision.title}</span>
+                </p>
+                <p className="text-xs text-slate-300 leading-relaxed">{myVision.notes}</p>
+                {myVision.targets.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    {myVision.targets.map((t) => (
+                      <div
+                        key={t.id}
+                        className={`flex items-center justify-between px-2.5 py-2 rounded-xl border text-xs font-bold ${
+                          t.tone === 'red'
+                            ? 'bg-red-950/70 border-red-500/40 text-red-200'
+                            : 'bg-amber-950/70 border-amber-500/40 text-amber-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <CharacterPortrait roleId={t.roleId} size="xs" />
+                          <span>{t.name}</span>
+                        </div>
+                        <span className="text-[10px] uppercase opacity-90">{t.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 2. PAPAN SKOR 5 MISI & TRACKER PENOLAKAN VOTING (1 - 5) */}
+        <section className="bg-[#1E293B] border border-slate-700/80 rounded-2xl p-4 space-y-3.5 shadow-lg">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">
+              Papan Misi Camelot ({playerCount} Pemain)
+            </h2>
+            <span className="text-[11px] font-semibold text-slate-400">
+              Ketua: <strong className="text-amber-300">{leader?.name}</strong>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-5 gap-2">
+            {matrix.quests.map((qSize, idx) => {
+              const qNum = idx + 1;
+              const res = roomData.questResults?.[idx];
+              const isCurrent =
+                roomData.phase !== 'GAME_OVER' &&
+                roomData.phase !== 'ASSASSINATION' &&
+                roomData.currentQuest === qNum;
+              const isQ4Double = qNum === 4 && matrix.twoFailsQuest4;
+
+              return (
+                <div
+                  key={qNum}
+                  className={`rounded-xl p-2 border flex flex-col items-center justify-center text-center relative ${
+                    res === 'SUCCESS'
+                      ? 'bg-blue-600/30 border-blue-400 text-blue-100'
+                      : res === 'FAIL'
+                      ? 'bg-red-600/30 border-red-400 text-red-100'
+                      : isCurrent
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-200 ring-2 ring-amber-400/30'
+                      : 'bg-[#0B1120]/70 border-slate-800 text-slate-400'
+                  }`}
+                >
+                  <span className="text-[10px] font-bold uppercase opacity-80">
+                    Misi {qNum}
+                  </span>
+                  <div className="my-1">
+                    {res === 'SUCCESS' ? (
+                      <ShieldCheck className="w-6 h-6 text-blue-400" />
+                    ) : res === 'FAIL' ? (
+                      <ShieldAlert className="w-6 h-6 text-red-400" />
+                    ) : (
+                      <span className="text-lg font-black">{qSize}</span>
+                    )}
+                  </div>
+                  <span className="text-[9px] font-semibold leading-tight">
+                    {res === 'SUCCESS'
+                      ? 'Sukses'
+                      : res === 'FAIL'
+                      ? 'Gagal'
+                      : isQ4Double
+                      ? '2 Gagal*'
+                      : `${qSize} Orang`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between pt-1 border-t border-slate-700/70">
+            <span className="text-[11px] font-semibold text-slate-400">
+              Voting Ditolak Berturut-turut:
+            </span>
+            <div className="flex items-center gap-1.5">
+              {[1, 2, 3, 4, 5].map((step) => {
+                const filled = (roomData.rejectedCount || 0) >= step;
+                return (
+                  <span
+                    key={step}
+                    className={`w-6 h-6 rounded-full text-xs font-extrabold flex items-center justify-center border ${
+                      filled
+                        ? step === 5
+                          ? 'bg-red-600 border-red-400 text-white'
+                          : 'bg-amber-500 border-amber-300 text-slate-950'
+                        : 'bg-[#0B1120] border-slate-700 text-slate-500'
+                    }`}
+                  >
+                    {step}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* Epilog Hasil Misi Terakhir */}
+        {roomData.lastQuestReveal && (
+          <QuestEpilogueCard reveal={roomData.lastQuestReveal} />
+        )}
+
+        {/* Ringkasan Hasil Voting Tim Terakhir */}
+        {roomData.lastVoteResult && (
+          <LastVoteSummaryCard result={roomData.lastVoteResult} players={players} />
+        )}
+
+        {/* 3. CERITA BAB MISI SAAT INI (PROLOG VISUAL) */}
+        {roomData.phase !== 'GAME_OVER' && roomData.phase !== 'ASSASSINATION' && (
+          <QuestChapterCard
+            questNumber={roomData.currentQuest}
+            needsTwoFails={needsTwoFails}
+          />
+        )}
+
+        {/* Banner Bantuan Jika Sedang Menunggu Bot */}
+        {isHost && isWaitingForBot && (
+          <div className="p-3 rounded-xl bg-purple-950/50 border border-purple-500/40 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs text-purple-200">
+              <Bot className="w-4 h-4 text-purple-400 shrink-0 animate-pulse" />
+              <span>Bot sedang memproses gilirannya...</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                botLockRef.current = false;
+                runBotTurnStep();
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+            >
+              <FastForward className="w-3.5 h-3.5" />
+              <span>Jalankan Bot</span>
+            </button>
+          </div>
+        )}
+
+        {/* ====================================================================
+            4. PANEL AKSI SESUAI FASE PERMAINAN
+            ==================================================================== */}
+
+        {/* FASE A: PENUNJUKAN TIM MISI */}
+        {roomData.phase === 'TEAM_PROPOSAL' && (
+          <section className="bg-[#1E293B] border border-slate-700 rounded-2xl p-4 space-y-4 shadow-xl">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
+                  Tahap 1 • Penunjukan Tim Misi {roomData.currentQuest}
+                </span>
+                <h3 className="text-base font-extrabold text-white mt-0.5">
+                  {isLeader
+                    ? `Pilih ${requiredTeamSize} Ksatria untuk Berangkat`
+                    : `Menunggu ${leader?.name} Memilih ${requiredTeamSize} Ksatria`}
+                </h3>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-extrabold shrink-0">
+                {isLeader ? selectedTeamDraft.length : 0}/{requiredTeamSize}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {players.map((p, idx) => {
+                const isSelected = selectedTeamDraft.includes(p.id);
+                const isCurrentLeader = idx === (roomData.leaderIndex || 0);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    disabled={!isLeader}
+                    onClick={() => toggleDraftMember(p.id)}
+                    className={`w-full px-3.5 py-3 rounded-xl border flex items-center justify-between transition text-left ${
+                      isSelected
+                        ? 'bg-amber-500/20 border-amber-400 text-white'
+                        : 'bg-[#0B1120]/70 border-slate-800 text-slate-300'
+                    } ${isLeader ? 'active:scale-[0.99] cursor-pointer' : 'cursor-default'}`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {isCurrentLeader ? (
+                        <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+                      ) : (
+                        <Shield className="w-4 h-4 text-slate-500 shrink-0" />
+                      )}
+                      <span className="font-bold text-sm truncate">{p.name}</span>
+                      {p.id === user?.uid && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                          Kamu
+                        </span>
+                      )}
+                    </div>
+
+                    {isLeader && (
+                      <div
+                        className={`w-6 h-6 rounded-lg border flex items-center justify-center ${
+                          isSelected
+                            ? 'bg-amber-400 border-amber-300 text-slate-950'
+                            : 'border-slate-600'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {isLeader ? (
+              <button
+                type="button"
+                disabled={selectedTeamDraft.length !== requiredTeamSize || busyAction}
+                onClick={handleConfirmProposal}
+                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-40 text-slate-950 font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition"
+              >
+                <Swords className="w-4 h-4" />
+                <span>
+                  Ajukan Tim ke Meja Voting ({selectedTeamDraft.length}/{requiredTeamSize})
+                </span>
+              </button>
+            ) : (
+              <p className="text-xs text-slate-400 text-center bg-[#0B1120]/60 p-3 rounded-xl">
+                Berdiskusilah sekarang! Siapa saja yang pantas dipercaya untuk menjalankan Misi {roomData.currentQuest}?
+              </p>
+            )}
+          </section>
+        )}
+
+        {/* FASE B: VOTING TIM SERENTAK DI PONSEL MASING-MASING */}
+        {roomData.phase === 'TEAM_VOTE' && (
+          <section className="bg-[#1E293B] border-2 border-amber-500/60 rounded-2xl p-4 space-y-4 shadow-xl">
+            <div>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
+                Tahap 2 • Voting Persetujuan Tim
+              </span>
+              <h3 className="text-base font-extrabold text-white mt-0.5">
+                Tim yang Diajukan {leader?.name}:
+              </h3>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {(roomData.proposedTeam || []).map((pid) => {
+                const member = players.find((p) => p.id === pid);
+                return (
+                  <span
+                    key={pid}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/60 text-amber-200 text-xs font-extrabold flex items-center gap-1.5"
+                  >
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>{member?.name || 'Ksatria'}</span>
+                  </span>
+                );
+              })}
+            </div>
+
+            {!hasVotedTeam ? (
+              <div className="space-y-2.5 pt-1">
+                <p className="text-xs text-slate-300">
+                  Berikan suaramu secara rahasia lewat ponselmu sekarang:
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    disabled={busyAction}
+                    onClick={() => handleCastVote('APPROVE')}
+                    className="py-4 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm shadow-lg shadow-blue-600/30 flex flex-col items-center justify-center gap-1.5 transition active:scale-95"
+                  >
+                    <ThumbsUp className="w-6 h-6" />
+                    <span>SETUJU</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyAction}
+                    onClick={() => handleCastVote('REJECT')}
+                    className="py-4 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm shadow-lg shadow-red-600/30 flex flex-col items-center justify-center gap-1.5 transition active:scale-95"
+                  >
+                    <ThumbsDown className="w-6 h-6" />
+                    <span>TOLAK</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-center space-y-1">
+                <p className="text-sm font-extrabold text-emerald-300">
+                  Suaramu ({roomData.votes?.[user?.uid] === 'APPROVE' ? 'SETUJU' : 'TOLAK'}) Tercatat!
+                </p>
+                <p className="text-xs text-slate-300">
+                  Menunggu pemain lain selesai memilih ({Object.keys(roomData.votes || {}).length}/{playerCount})...
+                </p>
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-slate-700/70">
+              <p className="text-[11px] font-bold text-slate-400 mb-2">
+                Status Suara Pemain ({Object.keys(roomData.votes || {}).length}/{playerCount}):
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {players.map((p) => {
+                  const voted = Boolean(roomData.votes?.[p.id]);
+                  return (
+                    <span
+                      key={p.id}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${
+                        voted
+                          ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                          : 'bg-slate-900 border-slate-800 text-slate-500'
+                      }`}
+                    >
+                      {p.name} {voted ? '✓' : '...'}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* FASE C: EKSEKUSI MISI RAHASIA */}
+        {roomData.phase === 'QUEST_EXECUTION' && (
+          <section className="bg-[#1E293B] border-2 border-blue-500/60 rounded-2xl p-4 space-y-4 shadow-xl">
+            <div>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-400">
+                Tahap 3 • Eksekusi Misi {roomData.currentQuest}
+              </span>
+              <h3 className="text-base font-extrabold text-white mt-0.5">
+                {isOnProposedTeam
+                  ? 'Kamu Terpilih Menjalankan Misi!'
+                  : 'Tim Ekspedisi Sedang Bertugas...'}
+              </h3>
+            </div>
+
+            {isOnProposedTeam ? (
+              !hasSubmittedQuestAction ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Pilih kartu misi rahasiamu. Tidak ada yang akan tahu siapa mengirim kartu apa—hanya total kartu Sukses dan Gagal yang diacak di akhir misi.
+                  </p>
+                  <div className={`grid ${isMyAlignmentGood ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+                    <button
+                      type="button"
+                      disabled={busyAction}
+                      onClick={() => handleCastQuestAction('SUCCESS')}
+                      className="py-4 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm shadow-lg shadow-blue-600/30 flex flex-col items-center justify-center gap-1.5 transition active:scale-95"
+                    >
+                      <ShieldCheck className="w-7 h-7" />
+                      <span>SUKSESKAN MISI</span>
+                    </button>
+
+                    {!isMyAlignmentGood && (
+                      <button
+                        type="button"
+                        disabled={busyAction}
+                        onClick={() => handleCastQuestAction('FAIL')}
+                        className="py-4 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm shadow-lg shadow-red-600/30 flex flex-col items-center justify-center gap-1.5 transition active:scale-95"
+                      >
+                        <ShieldAlert className="w-7 h-7" />
+                        <span>SABOTASE (GAGAL)</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-blue-950/50 border border-blue-500/40 text-center space-y-1">
+                  <p className="text-sm font-extrabold text-blue-200">
+                    Kartu Misimu Telah Dikirim!
+                  </p>
+                  <p className="text-xs text-slate-300">
+                    Menunggu anggota tim misi lainnya ({Object.keys(roomData.questActions || {}).length}/{(roomData.proposedTeam || []).length})...
+                  </p>
+                </div>
+              )
+            ) : (
+              <div className="p-4 rounded-xl bg-[#0B1120]/80 border border-slate-800 text-center space-y-2">
+                <p className="text-xs text-slate-300">
+                  Menunggu anggota tim terpilih menyelesaikan misi secara rahasia:
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {(roomData.proposedTeam || []).map((pid) => {
+                    const m = players.find((p) => p.id === pid);
+                    const done = Boolean(roomData.questActions?.[pid]);
+                    return (
+                      <span
+                        key={pid}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                          done
+                            ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                            : 'bg-slate-800 border-slate-700 text-slate-300'
+                        }`}
+                      >
+                        {m?.name} {done ? '✓' : '⏳'}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* FASE D: PERBURUAN TERAKHIR ASSASSIN */}
+        {roomData.phase === 'ASSASSINATION' && (
+          <section className="bg-gradient-to-b from-red-950/80 to-[#1E293B] border-2 border-red-500 rounded-2xl p-4 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <CharacterPortrait roleId="ASSASSIN" size="md" />
+              <div>
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-red-300">
+                  Kesempatan Terakhir Kubu Mordred!
+                </span>
+                <h3 className="text-lg font-black text-white">
+                  Assassin Mengincar Merlin!
+                </h3>
+                <p className="text-xs text-slate-200 mt-0.5">
+                  Kubu Arthur menang 3 misi, namun jika Assassin menebak siapa Merlin dengan tepat, Kubu Jahat berbalik menang!
+                </p>
+              </div>
+            </div>
+
+            {me?.role === 'ASSASSIN' ? (
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-amber-300">
+                  Pilih 1 pemain yang kamu yakini adalah Merlin:
+                </p>
+                <div className="space-y-2">
+                  {players
+                    .filter((p) => p.id !== user?.uid)
+                    .map((p) => {
+                      const picked = selectedAssassinTarget === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedAssassinTarget(p.id)}
+                          className={`w-full px-3.5 py-3 rounded-xl border flex items-center justify-between text-left transition ${
+                            picked
+                              ? 'bg-red-600/30 border-red-400 text-white'
+                              : 'bg-[#0B1120]/80 border-slate-800 text-slate-300'
+                          }`}
+                        >
+                          <span className="font-bold text-sm">{p.name}</span>
+                          <Skull
+                            className={`w-5 h-5 ${
+                              picked ? 'text-red-400' : 'text-slate-600'
+                            }`}
+                          />
+                        </button>
+                      );
+                    })}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!selectedAssassinTarget || busyAction}
+                  onClick={handleAssassinate}
+                  className="w-full py-3.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition"
+                >
+                  <Skull className="w-5 h-5" />
+                  <span>Eksekusi Target Sekarang!</span>
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-black/40 border border-red-500/30 text-center space-y-1">
+                <p className="text-sm font-bold text-red-200">
+                  Kubu Mordred sedang berdiskusi menentukan target...
+                </p>
+                <p className="text-xs text-slate-300">
+                  Merlin, tetaplah tenang dan jangan tunjukkan reaksi mencurigakan!
+                </p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* FASE E: PERMAINAN SELESAI & PENGUNGKAPAN IDENTITAS */}
+        {roomData.phase === 'GAME_OVER' && (
+          <section
+            className={`rounded-2xl border-2 p-5 space-y-4 shadow-2xl ${
+              roomData.winner === 'GOOD'
+                ? 'bg-gradient-to-b from-blue-950/90 to-[#1E293B] border-blue-400'
+                : 'bg-gradient-to-b from-red-950/90 to-[#1E293B] border-red-400'
+            }`}
+          >
+            <div className="text-center space-y-2">
+              <div
+                className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl mx-auto ${
+                  roomData.winner === 'GOOD'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-red-600 text-white'
+                }`}
+              >
+                {roomData.winner === 'GOOD' ? (
+                  <Crown className="w-8 h-8" />
+                ) : (
+                  <Skull className="w-8 h-8" />
+                )}
+              </div>
+              <p className="text-xs font-extrabold uppercase tracking-widest text-amber-300">
+                Pertempuran Berakhir
+              </p>
+              <h2 className="text-2xl font-black text-white">
+                {roomData.winner === 'GOOD'
+                  ? 'KUBU SETIA ARTHUR MENANG!'
+                  : 'KUBU MORDRED MENANG!'}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                {roomData.winReason}
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-white/10">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-slate-300">
+                Pengungkapan Identitas Seluruh Pemain:
+              </p>
+              {players.map((p) => {
+                const rDef =
+                  ROLE_DEFINITIONS[p.role] || ROLE_DEFINITIONS.LOYAL_SERVANT;
+                const isGood = rDef.alignment === 'GOOD';
+                const wasShot = roomData.assassinatedId === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 ${
+                      isGood
+                        ? 'bg-blue-950/40 border-blue-500/40'
+                        : 'bg-red-950/40 border-red-500/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <CharacterPortrait roleId={p.role} size="sm" />
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-white truncate flex items-center gap-1.5">
+                          <span>{p.name}</span>
+                          {wasShot && (
+                            <span className="px-1.5 py-0.5 rounded bg-red-600 text-[10px] font-extrabold text-white">
+                              Ditembak
+                            </span>
+                          )}
+                        </p>
+                        <p
+                          className={`text-xs font-extrabold ${
+                            isGood ? 'text-blue-300' : 'text-red-300'
+                          }`}
+                        >
+                          {rDef.name}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-extrabold shrink-0 ${
+                        isGood ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+                      }`}
+                    >
+                      {isGood ? 'BAIK' : 'JAHAT'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {isHost ? (
+              <button
+                type="button"
+                onClick={handleReturnToLobby}
+                className="w-full py-3.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Main Lagi (Kembali ke Lobi)</span>
+              </button>
+            ) : (
+              <p className="text-xs text-center text-slate-300">
+                Menunggu Host membuka ronde berikutnya...
+              </p>
+            )}
+          </section>
+        )}
+      </main>
+
+      {showGrimoireModal && (
+        <CharacterGrimoireModal onClose={() => setShowGrimoireModal(false)} />
+      )}
+      {showRulesModal && <RulesGuideModal onClose={() => setShowRulesModal(false)} />}
+    </div>
+  );
+}
+
+// ============================================================================
 // SUB-KOMPONEN UI
 // ============================================================================
-function RoleToggleRow({
-  title,
-  subtitle,
-  badge,
-  portraits = [],
-  enabled,
-  disabled,
-  onToggle,
-}) {
+function RoleToggleRow({ title, subtitle, badge, portraits = [], enabled, disabled, onToggle }) {
   return (
     <button
       type="button"
@@ -4144,9 +3181,7 @@ function CharacterGrimoireModal({ onClose }) {
           <div className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-amber-400" />
             <div>
-              <h3 className="font-extrabold text-white text-base">
-                Kitab Karakter Avalon
-              </h3>
+              <h3 className="font-extrabold text-white text-base">Kitab Karakter Avalon</h3>
               <p className="text-[11px] text-slate-400">
                 Kenali ilustrasi & kekuatan seluruh 8 peran
               </p>
@@ -4176,22 +3211,16 @@ function CharacterGrimoireModal({ onClose }) {
                 <CharacterPortrait roleId={roleId} size="md" />
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <h4 className="font-extrabold text-sm text-white">
-                      {role.name}
-                    </h4>
+                    <h4 className="font-extrabold text-sm text-white">{role.name}</h4>
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                        isGood
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-red-600 text-white'
+                        isGood ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
                       }`}
                     >
                       {role.teamLabel}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    {role.ability}
-                  </p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{role.ability}</p>
                 </div>
               </div>
             );
@@ -4226,16 +3255,12 @@ function LastVoteSummaryCard({ result, players }) {
       >
         <span>
           Voting Misi {result.questNumber} (#{result.proposalNumber}):{' '}
-          {result.approved ? 'DISETUJUI' : 'DITOLAK'} ({result.approveCount}{' '}
-          Setuju, {result.rejectCount} Tolak)
+          {result.approved ? 'DISETUJUI' : 'DITOLAK'} ({result.approveCount} Setuju,{' '}
+          {result.rejectCount} Tolak)
         </span>
         <span className="flex items-center gap-1 underline opacity-90">
           <span>Detail</span>
-          {expanded ? (
-            <ChevronUp className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronDown className="w-3.5 h-3.5" />
-          )}
+          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </span>
       </button>
 
@@ -4274,10 +3299,7 @@ function RulesGuideModal({ onClose }) {
             <Crown className="w-5 h-5 text-amber-400" />
             <span>Panduan Singkat Avalon</span>
           </h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-slate-800 text-slate-300"
-          >
+          <button onClick={onClose} className="p-1.5 rounded-lg bg-slate-800 text-slate-300">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -4286,32 +3308,28 @@ function RulesGuideModal({ onClose }) {
           <div className="p-3 rounded-xl bg-[#0B1120] border border-slate-800">
             <p className="font-bold text-amber-400 mb-1">1. Tujuan Permainan</p>
             <p>
-              <strong>Kubu Setia Arthur (Biru)</strong> menang jika berhasil
-              menyukseskan <strong>3 dari 5 Misi</strong> dan Merlin selamat
-              dari pembunuhan di akhir laga.{' '}
-              <strong>Kubu Jahat Mordred (Merah)</strong> menang jika 3 Misi
-              gagal, 5 voting tim ditolak berturut-turut, atau Assassin berhasil
-              membunuh Merlin!
+              <strong>Kubu Setia Arthur (Biru)</strong> menang jika berhasil menyukseskan{' '}
+              <strong>3 dari 5 Misi</strong> dan Merlin selamat dari pembunuhan di akhir laga.{' '}
+              <strong>Kubu Jahat Mordred (Merah)</strong> menang jika 3 Misi gagal, 5 voting tim
+              ditolak berturut-turut, atau Assassin berhasil membunuh Merlin!
             </p>
           </div>
 
           <div className="p-3 rounded-xl bg-[#0B1120] border border-slate-800">
-            <p className="font-bold text-amber-400 mb-1">
-              2. Alur Setiap Ronde
-            </p>
+            <p className="font-bold text-amber-400 mb-1">2. Alur Setiap Ronde</p>
             <ul className="list-disc pl-4 space-y-1">
               <li>
-                <strong>Penunjukan Tim:</strong> Ketua Misi memilih sejumlah
-                pemain untuk berangkat menjalankan misi.
+                <strong>Penunjukan Tim:</strong> Ketua Misi memilih sejumlah pemain untuk berangkat
+                menjalankan misi.
               </li>
               <li>
-                <strong>Voting Tim:</strong> Seluruh pemain memilih{' '}
-                <em>Setuju</em> atau <em>Tolak</em> lewat ponsel masing-masing.
+                <strong>Voting Tim:</strong> Seluruh pemain memilih <em>Setuju</em> atau{' '}
+                <em>Tolak</em> lewat ponsel masing-masing.
               </li>
               <li>
-                <strong>Eksekusi Misi:</strong> Anggota tim terpilih mengirim
-                kartu <em>Sukses</em> atau <em>Sabotase</em> secara rahasia.
-                Umumnya 1 kartu Gagal saja sudah menggagalkan misi!
+                <strong>Eksekusi Misi:</strong> Anggota tim terpilih mengirim kartu <em>Sukses</em>{' '}
+                atau <em>Sabotase</em> secara rahasia. Umumnya 1 kartu Gagal saja sudah menggagalkan
+                misi!
               </li>
             </ul>
           </div>
@@ -4320,19 +3338,16 @@ function RulesGuideModal({ onClose }) {
             <p className="font-bold text-amber-400 mb-1">3. Peran Kunci</p>
             <ul className="space-y-1.5">
               <li>
-                <strong className="text-blue-400">Merlin:</strong> Tahu siapa
-                semua pengkhianat, tapi harus pandai berakting agar tidak
-                ketahuan Assassin.
+                <strong className="text-blue-400">Merlin:</strong> Tahu siapa semua pengkhianat,
+                tapi harus pandai berakting agar tidak ketahuan Assassin.
               </li>
               <li>
-                <strong className="text-red-400">Assassin:</strong> Jika kubu
-                baik menang 3 misi, Assassin menembak 1 pemain yang diduga
-                Merlin.
+                <strong className="text-red-400">Assassin:</strong> Jika kubu baik menang 3 misi,
+                Assassin menembak 1 pemain yang diduga Merlin.
               </li>
               <li>
-                <strong className="text-blue-400">Percival & Morgana:</strong>{' '}
-                Percival melihat Merlin, namun Morgana ikut menyamar sebagai
-                Merlin untuk mengecohnya.
+                <strong className="text-blue-400">Percival & Morgana:</strong> Percival melihat
+                Merlin, namun Morgana ikut menyamar sebagai Merlin untuk mengecohnya.
               </li>
             </ul>
           </div>
