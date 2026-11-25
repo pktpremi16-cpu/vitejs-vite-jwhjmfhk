@@ -43,7 +43,9 @@ import {
   HelpCircle,
   BookOpen,
   FastForward,
-  ScrollText
+  ScrollText,
+  Trophy,
+  Award
 } from 'lucide-react';
 
 // ============================================================================
@@ -186,61 +188,218 @@ const ROLE_DEFINITIONS = {
 };
 
 const QUEST_STORIES = {
-  1: {
-    chapter: 'Bab I',
-    title: 'Gerbang Kabut Avalon',
-    prologue:
-      'Kabut tebal menyelimuti perbatasan Camelot. Pasukan pengintai harus membuka jalur suci menuju Pulau Avalon sebelum bayangan Mordred menyusup.',
-    successEpilogue:
-      'Obor suci berhasil dinyalakan! Jalur menuju Avalon terbuka terang bagi pasukan Raja Arthur.',
-    failEpilogue:
-      'Api obor dipadamkan secara misterius di tengah kabut! Ada pengkhianat di dalam barisan pengintai.'
-  },
-  2: {
-    chapter: 'Bab II',
-    title: 'Relik Cawan Suci',
-    prologue:
-      'Di reruntuhan biara kuno, Cawan Suci memancarkan cahaya perak. Tim ekspedisi harus mengamankannya tanpa menarik perhatian penyihir kegelapan.',
-    successEpilogue:
-      'Cawan Suci berhasil diamankan ke benteng Camelot! Semangat para Ksatria Meja Bundar berkobar.',
-    failEpilogue:
-      'Segel biara dihancurkan dari dalam! Relik suci terlepas di tengah kekacauan yang disengaja.'
-  },
-  3: {
-    chapter: 'Bab III',
-    title: 'Jembatan Danau Excalibur',
-    prologue:
-      'Untuk melintasi danau bercahaya, para ksatria terpilih harus menjaga keseimbangan mantra di atas jembatan batu tua.',
-    successEpilogue:
-      'Jembatan batu tetap kokoh hingga seluruh rombongan tiba di tepi seberang dengan selamat.',
-    failEpilogue:
-      'Mantra pelindung retak dan jembatan runtuh ke danau! Sabotase kembali menggagalkan langkah Arthur.'
-  },
-  4: {
-    chapter: 'Bab IV',
-    title: 'Benteng Badai Tintagel',
-    prologue:
-      'Petir menyambar menara Tintagel. Pertahanan musuh berlipat ganda sehingga dibutuhkan pengawasan ekstra ketat di dalam tim.',
-    successEpilogue:
-      'Panji biru Camelot berkibar gagah di puncak menara Tintagel di tengah badai!',
-    failEpilogue:
-      'Gerbang benteng terbuka dari dalam untuk pasukan kegelapan! Pengkhianatan besar terjadi di Tintagel.'
-  },
-  5: {
-    chapter: 'Bab V',
-    title: 'Takhta Terakhir Camelot',
-    prologue:
-      'Pertempuran penentuan nasib kerajaan! Setiap langkah dan tatapan di meja bundar akan menentukan masa depan Camelot selamanya.',
-    successEpilogue:
-      'Cahaya fajar menyinari Camelot! Pasukan Raja Arthur berhasil mempertahankan takhta suci.',
-    failEpilogue:
-      'Kegelapan menelan aula Meja Bundar! Konspirasi Mordred berhasil meruntuhkan kejayaan Camelot.'
-  }
+  1: [
+    {
+      chapter: 'Bab I',
+      title: 'Gerbang Kabut Avalon',
+      prologue:
+        'Kabut tebal menyelimuti perbatasan Camelot. Pasukan pengintai harus membuka jalur suci menuju Pulau Avalon sebelum bayangan Mordred menyusup.',
+      successEpilogue:
+        'Obor suci berhasil dinyalakan! Jalur menuju Avalon terbuka terang bagi pasukan Raja Arthur.',
+      failEpilogue:
+        'Api obor dipadamkan secara misterius di tengah kabut! Ada pengkhianat di dalam barisan pengintai.'
+    },
+    {
+      chapter: 'Bab I',
+      title: 'Hutan Bisikan Broceliande',
+      prologue:
+        'Pepohonan purba di Hutan Broceliande menyimpan peta rahasia menuju kuil kristal. Tim perintis harus menembus labirin akar tanpa tersesat.',
+      successEpilogue:
+        'Peta kristal berhasil ditemukan! Jalan setapak menuju jantung hutan terbuka bagi pasukan Camelot.',
+      failEpilogue:
+        'Kompas sihir dihancurkan secara diam-diam! Rombongan berputar-putar dalam kabut ilusi.'
+    },
+    {
+      chapter: 'Bab I',
+      title: 'Menara Mercusuar Lyonesse',
+      prologue:
+        'Badai laut mengancam armada kapal Camelot. Para utusan terpilih harus menyalakan api suar di puncak tebing Lyonesse sebelum tengah malam.',
+      successEpilogue:
+        'Cahaya emas mercusuar membelah badai! Armada Raja Arthur berlabuh dengan selamat.',
+      failEpilogue:
+        'Minyak suar ditumpahkan ke jurang! Armada kapal terombang-ambing di tengah kegelapan.'
+    }
+  ],
+  2: [
+    {
+      chapter: 'Bab II',
+      title: 'Relik Cawan Suci',
+      prologue:
+        'Di reruntuhan biara kuno, Cawan Suci memancarkan cahaya perak. Tim ekspedisi harus mengamankannya tanpa menarik perhatian penyihir kegelapan.',
+      successEpilogue:
+        'Cawan Suci berhasil diamankan ke benteng Camelot! Semangat para Ksatria Meja Bundar berkobar.',
+      failEpilogue:
+        'Segel biara dihancurkan dari dalam! Relik suci terlepas di tengah kekacauan yang disengaja.'
+    },
+    {
+      chapter: 'Bab II',
+      title: 'Perpustakaan Terlarang Glastonbury',
+      prologue:
+        'Gulungan ramalan kuno tentang kelemahan pasukan kegelapan tersimpan di ruang bawah tanah Glastonbury. Tim harus menyalinnya sebelum fajar.',
+      successEpilogue:
+        'Ramalan suci berhasil dibawa pulang! Strategi besar Raja Arthur kini selangkah di depan musuh.',
+      failEpilogue:
+        'Rak-rak naskah kuno terbakar hebat! Rahasia penting lenyap menjadi abu akibat sabotase.'
+    },
+    {
+      chapter: 'Bab II',
+      title: 'Tambang Perak Caerleon',
+      prologue:
+        'Para pandai besi Camelot membutuhkan bijih perak murni dari gua Caerleon untuk menempa perisai penangkal sihir hitam.',
+      successEpilogue:
+        'Kereta penuh perak murni tiba di bengkel kerajaan! Perisai pelindung siap dibagikan.',
+      failEpilogue:
+        'Terowongan utama diruntuhkan dari dalam! Pasokan perak terputus total.'
+    }
+  ],
+  3: [
+    {
+      chapter: 'Bab III',
+      title: 'Jembatan Danau Excalibur',
+      prologue:
+        'Untuk melintasi danau bercahaya, para ksatria terpilih harus menjaga keseimbangan mantra di atas jembatan batu tua.',
+      successEpilogue:
+        'Jembatan batu tetap kokoh hingga seluruh rombongan tiba di tepi seberang dengan selamat.',
+      failEpilogue:
+        'Mantra pelindung retak dan jembatan runtuh ke danau! Sabotase kembali menggagalkan langkah Arthur.'
+    },
+    {
+      chapter: 'Bab III',
+      title: 'Ngarai Naga Pendragon',
+      prologue:
+        'Jalur sempit di antara tebing batu merah dijaga oleh hembusan angin api. Tim pembawa panji harus melintasinya dengan formasi rapat.',
+      successEpilogue:
+        'Panji Pendragon berhasil melintasi ngarai tanpa goresan sedikit pun!',
+      failEpilogue:
+        'Tali pengaman diputus di tengah tebing! Perbekalan ekspedisi jatuh ke dasar jurang.'
+    },
+    {
+      chapter: 'Bab III',
+      title: 'Rawa Kabut Camlann',
+      prologue:
+        'Di atas rawa beracun Camlann, batu-batu pijakan hanya muncul saat bulan purnama. Satu langkah keliru akan menenggelamkan seluruh pasukan.',
+      successEpilogue:
+        'Seluruh ksatria berhasil menyeberangi rawa kelam dan mencapai dataran tinggi!',
+      failEpilogue:
+        'Lentera penunjuk arah dipadamkan! Pasukan terjebak lumpur hisap dan terpaksa mundur.'
+    }
+  ],
+  4: [
+    {
+      chapter: 'Bab IV',
+      title: 'Benteng Badai Tintagel',
+      prologue:
+        'Petir menyambar menara Tintagel. Pertahanan musuh berlipat ganda sehingga dibutuhkan pengawasan ekstra ketat di dalam tim.',
+      successEpilogue:
+        'Panji biru Camelot berkibar gagah di puncak menara Tintagel di tengah badai!',
+      failEpilogue:
+        'Gerbang benteng terbuka dari dalam untuk pasukan kegelapan! Pengkhianatan besar terjadi di Tintagel.'
+    },
+    {
+      chapter: 'Bab IV',
+      title: 'Kastil Es Orkney',
+      prologue:
+        'Di puncak pegunungan bersalju Orkney, Kristal Pembeku mengancam membekukan seluruh lembah Camelot. Tim inti harus menghancurkan sumber mantranya.',
+      successEpilogue:
+        'Kristal Pembeku hancur berkeping-keping! Kehangatan matahari kembali menyinari lembah.',
+      failEpilogue:
+        'Altar sihir justru diperkuat dari dalam! Badai salju ganas menghantam garis pertahanan Arthur.'
+    },
+    {
+      chapter: 'Bab IV',
+      title: 'Pelabuhan Armada Cornwall',
+      prologue:
+        'Ratusan kapal perang bayangan bersiap mendarat di teluk Cornwall. Tim penyusup harus membakar layar kapal musuh sebelum jangkar diangkat.',
+      successEpilogue:
+        'Armada bayangan lumpuh total di pelabuhan! Pesisir selatan Camelot aman terkendali.',
+      failEpilogue:
+        'Sinyal tanda bahaya dibocorkan kepada musuh! Tim penyusup disergap di dermaga.'
+    }
+  ],
+  5: [
+    {
+      chapter: 'Bab V',
+      title: 'Takhta Terakhir Camelot',
+      prologue:
+        'Pertempuran penentuan nasib kerajaan! Setiap langkah dan tatapan di meja bundar akan menentukan masa depan Camelot selamanya.',
+      successEpilogue:
+        'Cahaya fajar menyinari Camelot! Pasukan Raja Arthur berhasil mempertahankan takhta suci.',
+      failEpilogue:
+        'Kegelapan menelan aula Meja Bundar! Konspirasi Mordred berhasil meruntuhkan kejayaan Camelot.'
+    },
+    {
+      chapter: 'Bab V',
+      title: 'Gerhana Merah di Batu Excalibur',
+      prologue:
+        'Di bawah langit gerhana darah, kekuatan cahaya dan kegelapan beradu untuk terakhir kalinya di puncak bukit suci Avalon.',
+      successEpilogue:
+        'Pedang Excalibur memancarkan cahaya keemasan yang mengusir seluruh bayangan Mordred!',
+      failEpilogue:
+        'Retakan gelap membelah bukit suci! Era kejayaan Meja Bundar berakhir dalam bayang-bayang.'
+    },
+    {
+      chapter: 'Bab V',
+      title: 'Pengepungan Aula Meja Bundar',
+      prologue:
+        'Pasukan kegelapan telah mengepung gerbang utama istana. Hanya persatuan sejati para ksatria terpilih yang mampu membalikkan keadaan.',
+      successEpilogue:
+        'Serangan balik Camelot memukul mundur seluruh legiun kegelapan hingga ke ujung negeri!',
+      failEpilogue:
+        'Kunci gerbang utama diserahkan kepada musuh dari dalam! Aula Meja Bundar jatuh ke tangan pengkhianat.'
+    }
+  ]
 };
+
+function getQuestStory(questNumber, storyVariant = 0) {
+  const list = QUEST_STORIES[questNumber] || QUEST_STORIES[1];
+  const idx = Math.abs(Number(storyVariant) || 0) % list.length;
+  return list[idx];
+}
 
 // ============================================================================
 // FUNGSI PEMBANTU PERMAINAN (KODE RUANGAN, ACAK PERAN & PENGLIHATAN BATIN)
 // ============================================================================
+// Sistem perhitungan poin per permainan untuk Scoreboard
+function calculateMatchPoints(playersList, winner, assassinatedId = null) {
+  const evilRoles = ['ASSASSIN', 'MORGANA', 'MORDRED', 'OBERON', 'MINION'];
+  const breakdown = {};
+
+  const updatedPlayers = playersList.map((p) => {
+    const isEvil = evilRoles.includes(p.role);
+    const isWinner =
+      (winner === 'GOOD' && !isEvil) || (winner === 'EVIL' && isEvil);
+
+    let earned = isWinner ? 100 : 25; // 100 poin pemenang, 25 poin partisipasi
+    let note = isWinner ? 'Menang (+100)' : 'Partisipasi (+25)';
+
+    if (winner === 'GOOD' && p.role === 'MERLIN') {
+      earned += 30;
+      note = 'Menang + Merlin Selamat (+130)';
+    } else if (
+      winner === 'EVIL' &&
+      p.role === 'ASSASSIN' &&
+      assassinatedId
+    ) {
+      const shotTarget = playersList.find((t) => t.id === assassinatedId);
+      if (shotTarget?.role === 'MERLIN') {
+        earned += 40;
+        note = 'Menang + Tembak Merlin (+140)';
+      }
+    }
+
+    breakdown[p.id] = { earned, note };
+
+    return {
+      ...p,
+      score: (p.score || 0) + earned,
+      wins: (p.wins || 0) + (isWinner ? 1 : 0),
+      gamesPlayed: (p.gamesPlayed || 0) + 1
+    };
+  });
+
+  return { updatedPlayers, breakdown };
+}
+
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
@@ -250,10 +409,20 @@ function generateRoomCode() {
   return result;
 }
 
+function getSecureRandomInt(max) {
+  if (max <= 1) return 0;
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+}
+
 function shuffleArray(list) {
   const arr = [...list];
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = getSecureRandomInt(i + 1);
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -289,6 +458,41 @@ function buildRolePool(playerCount, settings = {}) {
   }
 
   return shuffleArray([...goodRoles, ...evilRoles]);
+}
+
+// Membagikan peran secara acak sejati sekaligus meminimalkan pemain mendapat peran yang sama berulang kali
+function assignFreshRandomRoles(playersList, settings = {}) {
+  const pool = buildRolePool(playersList.length, settings);
+  let bestAssignment = shuffleArray(pool);
+  let lowestRepeats = Infinity;
+
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const candidate = shuffleArray(pool);
+    let repeats = 0;
+    for (let i = 0; i < playersList.length; i++) {
+      if (playersList[i].lastRole && playersList[i].lastRole === candidate[i]) {
+        repeats++;
+      }
+    }
+    if (repeats < lowestRepeats) {
+      lowestRepeats = repeats;
+      bestAssignment = candidate;
+    }
+    if (lowestRepeats === 0) break;
+  }
+
+  return playersList.map((p, idx) => ({
+    ...p,
+    role: bestAssignment[idx],
+    lastRole: bestAssignment[idx]
+  }));
+}
+
+function generateQuestStoryVariants() {
+  return [1, 2, 3, 4, 5].map((qNum) => {
+    const count = (QUEST_STORIES[qNum] || []).length || 1;
+    return getSecureRandomInt(count);
+  });
 }
 
 function computePlayerVision(me, allPlayers = []) {
@@ -1005,9 +1209,9 @@ function QuestIllustration({ questNumber, outcome = null }) {
 // ============================================================================
 // KOMPONEN KARTU BAB MISI (PROLOG CERITA) & KARTU EPILOG HASIL MISI
 // ============================================================================
-function QuestChapterCard({ questNumber, needsTwoFails }) {
+function QuestChapterCard({ questNumber, needsTwoFails, storyVariant = 0 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const story = QUEST_STORIES[questNumber] || QUEST_STORIES[1];
+  const story = getQuestStory(questNumber, storyVariant);
 
   return (
     <section className="bg-[#1E293B] border border-amber-500/40 rounded-2xl p-3.5 shadow-xl space-y-2.5">
@@ -1049,13 +1253,8 @@ function QuestChapterCard({ questNumber, needsTwoFails }) {
 }
 
 function QuestEpilogueCard({ reveal }) {
-  const story = QUEST_STORIES[reveal.questNumber] || QUEST_STORIES[1];
+  const story = getQuestStory(reveal.questNumber, reveal.storyVariant);
   const isSuccess = reveal.status === 'SUCCESS';
-
-  const cards = [
-    ...Array(reveal.successCount || 0).fill('SUCCESS'),
-    ...Array(reveal.failCount || 0).fill('FAIL')
-  ];
 
   return (
     <section
@@ -1087,29 +1286,26 @@ function QuestEpilogueCard({ reveal }) {
 
       <QuestIllustration questNumber={reveal.questNumber} outcome={reveal.status} />
 
-      <div className="flex items-center justify-center gap-2.5 py-1 flex-wrap">
-        {cards.map((cardType, idx) => (
-          <div
-            key={idx}
-            className={`px-3.5 py-2 rounded-xl border-2 flex items-center gap-1.5 font-extrabold text-xs shadow-md ${
-              cardType === 'SUCCESS'
-                ? 'bg-blue-600/30 border-blue-400 text-blue-100'
-                : 'bg-red-600/30 border-red-400 text-red-100'
-            }`}
-          >
-            {cardType === 'SUCCESS' ? (
-              <>
-                <ShieldCheck className="w-4 h-4 text-blue-300" />
-                <span>SUKSES</span>
-              </>
-            ) : (
-              <>
-                <ShieldAlert className="w-4 h-4 text-red-300" />
-                <span>GAGAL</span>
-              </>
-            )}
-          </div>
-        ))}
+      <div className="flex items-center justify-center py-1">
+        <div
+          className={`px-4 py-2 rounded-xl border-2 flex items-center gap-2 font-extrabold text-xs shadow-md ${
+            isSuccess
+              ? 'bg-blue-600/30 border-blue-400 text-blue-100'
+              : 'bg-red-600/30 border-red-400 text-red-100'
+          }`}
+        >
+          {isSuccess ? (
+            <>
+              <ShieldCheck className="w-4 h-4 text-blue-300" />
+              <span>HASIL AKHIR: MISI BERHASIL</span>
+            </>
+          ) : (
+            <>
+              <ShieldAlert className="w-4 h-4 text-red-300" />
+              <span>HASIL AKHIR: MISI GAGAL</span>
+            </>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-slate-200 leading-relaxed bg-[#0B1120]/75 p-3 rounded-xl border border-white/10">
@@ -1321,7 +1517,10 @@ export default function App() {
     } else {
       const nextRejectedCount = (currentRoom.rejectedCount || 0) + 1;
       if (nextRejectedCount >= 5) {
+        const { updatedPlayers, breakdown } = calculateMatchPoints(allPlayers, 'EVIL', null);
         await updateDoc(roomRef, {
+          players: updatedPlayers,
+          lastScoreBreakdown: breakdown,
           votes: updatedVotes,
           lastVoteResult: voteSummary,
           rejectedCount: nextRejectedCount,
@@ -1371,8 +1570,11 @@ export default function App() {
       (pid) => allPlayers.find((p) => p.id === pid)?.name || 'Ksatria'
     );
 
+    const storyVariant = currentRoom.questStoryVariants?.[qNum - 1] ?? 0;
+
     const questReveal = {
       questNumber: qNum,
+      storyVariant,
       status: questSucceeded ? 'SUCCESS' : 'FAIL',
       successCount,
       failCount,
@@ -1383,7 +1585,10 @@ export default function App() {
     const totalFail = updatedResults.filter((r) => r === 'FAIL').length;
 
     if (totalFail >= 3) {
+      const { updatedPlayers, breakdown } = calculateMatchPoints(allPlayers, 'EVIL', null);
       await updateDoc(roomRef, {
+        players: updatedPlayers,
+        lastScoreBreakdown: breakdown,
         questActions: updatedActions,
         questResults: updatedResults,
         lastQuestReveal: questReveal,
@@ -1409,7 +1614,10 @@ export default function App() {
           phase: 'ASSASSINATION'
         });
       } else {
+        const { updatedPlayers, breakdown } = calculateMatchPoints(allPlayers, 'GOOD', null);
         await updateDoc(roomRef, {
+          players: updatedPlayers,
+          lastScoreBreakdown: breakdown,
           questActions: updatedActions,
           questResults: updatedResults,
           lastQuestReveal: questReveal,
@@ -1516,9 +1724,17 @@ export default function App() {
           const target =
             goodCandidates[Math.floor(Math.random() * goodCandidates.length)] || allPlayers[0];
           const killedMerlin = target.role === 'MERLIN';
+          const winnerSide = killedMerlin ? 'EVIL' : 'GOOD';
+          const { updatedPlayers, breakdown } = calculateMatchPoints(
+            allPlayers,
+            winnerSide,
+            target.id
+          );
           await updateDoc(roomRef, {
+            players: updatedPlayers,
+            lastScoreBreakdown: breakdown,
             phase: 'GAME_OVER',
-            winner: killedMerlin ? 'EVIL' : 'GOOD',
+            winner: winnerSide,
             winReason: killedMerlin
               ? `Assassin (${assassin.name}) berhasil menebak dan membunuh Merlin (${target.name})!`
               : `Assassin (${assassin.name}) salah menembak ${target.name}. Merlin selamat dan Kubu Arthur menang!`,
@@ -1606,11 +1822,15 @@ export default function App() {
             id: user.uid,
             name: trimmedName,
             isBot: false,
-            role: null
+            role: null,
+            score: 0,
+            wins: 0,
+            gamesPlayed: 0
           }
         ],
         currentQuest: 1,
         questResults: [null, null, null, null, null],
+        questStoryVariants: [0, 0, 0, 0, 0],
         leaderIndex: 0,
         rejectedCount: 0,
         proposedTeam: [],
@@ -1618,6 +1838,7 @@ export default function App() {
         questActions: {},
         lastVoteResult: null,
         lastQuestReveal: null,
+        lastScoreBreakdown: null,
         winner: null,
         winReason: '',
         assassinatedId: null
@@ -1686,7 +1907,15 @@ export default function App() {
         }
         const updatedPlayers = [
           ...(data.players || []),
-          { id: user.uid, name: trimmedName, isBot: false, role: null }
+          {
+            id: user.uid,
+            name: trimmedName,
+            isBot: false,
+            role: null,
+            score: 0,
+            wins: 0,
+            gamesPlayed: 0
+          }
         ];
         await updateDoc(roomRef, { players: updatedPlayers });
       }
@@ -1756,7 +1985,10 @@ export default function App() {
       id: `bot_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name: nextName,
       isBot: true,
-      role: null
+      role: null,
+      score: 0,
+      wins: 0,
+      gamesPlayed: 0
     };
 
     const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
@@ -1798,12 +2030,9 @@ export default function App() {
 
     setBusyAction(true);
     try {
-      const shuffledPlayers = shuffleArray(players);
-      const rolePool = buildRolePool(shuffledPlayers.length, roomData.settings || {});
-      const assignedPlayers = shuffledPlayers.map((p, idx) => ({
-        ...p,
-        role: rolePool[idx]
-      }));
+      const assignedPlayers = assignFreshRandomRoles(players, roomData.settings || {});
+      const storyVariants = generateQuestStoryVariants();
+      const startingLeaderIndex = getSecureRandomInt(assignedPlayers.length);
 
       const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
       await updateDoc(roomRef, {
@@ -1811,13 +2040,15 @@ export default function App() {
         phase: 'TEAM_PROPOSAL',
         currentQuest: 1,
         questResults: [null, null, null, null, null],
-        leaderIndex: 0,
+        questStoryVariants: storyVariants,
+        leaderIndex: startingLeaderIndex,
         rejectedCount: 0,
         proposedTeam: [],
         votes: {},
         questActions: {},
         lastVoteResult: null,
         lastQuestReveal: null,
+        lastScoreBreakdown: null,
         winner: null,
         winReason: '',
         assassinatedId: null
@@ -1915,11 +2146,19 @@ export default function App() {
     try {
       const target = players.find((p) => p.id === selectedAssassinTarget);
       const killedMerlin = target?.role === 'MERLIN';
+      const winnerSide = killedMerlin ? 'EVIL' : 'GOOD';
+      const { updatedPlayers, breakdown } = calculateMatchPoints(
+        players,
+        winnerSide,
+        selectedAssassinTarget
+      );
       const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
 
       await updateDoc(roomRef, {
+        players: updatedPlayers,
+        lastScoreBreakdown: breakdown,
         phase: 'GAME_OVER',
-        winner: killedMerlin ? 'EVIL' : 'GOOD',
+        winner: winnerSide,
         winReason: killedMerlin
           ? `Assassin (${me.name}) berhasil menebak dan membunuh Merlin (${target?.name})! Kemenangan direbut Kubu Mordred!`
           : `Assassin (${me.name}) salah menembak ${target?.name}. Merlin selamat dan Kubu Setia Arthur menang!`,
@@ -1938,7 +2177,11 @@ export default function App() {
     const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
     await updateDoc(roomRef, {
       phase: 'LOBBY',
-      players: players.map((p) => ({ ...p, role: null })),
+      players: players.map((p) => ({
+        ...p,
+        lastRole: p.role || p.lastRole || null,
+        role: null
+      })),
       currentQuest: 1,
       questResults: [null, null, null, null, null],
       leaderIndex: 0,
@@ -1948,11 +2191,26 @@ export default function App() {
       questActions: {},
       lastVoteResult: null,
       lastQuestReveal: null,
+      lastScoreBreakdown: null,
       winner: null,
       winReason: '',
       assassinatedId: null
     });
     setRoleCardOpen(false);
+  };
+
+  const handleResetScores = async () => {
+    if (!isHost || !roomData) return;
+    const roomRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'avalon_rooms', roomData.code);
+    await updateDoc(roomRef, {
+      players: players.map((p) => ({
+        ...p,
+        score: 0,
+        wins: 0,
+        gamesPlayed: 0
+      }))
+    });
+    showToast('Papan skor telah direset ke 0!', 'success');
   };
 
   const copyRoomCode = () => {
@@ -2251,6 +2509,16 @@ export default function App() {
               </p>
             )}
           </div>
+
+          {/* Papan Skor / Scoreboard Lobi */}
+          {players.some((p) => (p.score || 0) > 0 || (p.gamesPlayed || 0) > 0) && (
+            <ScoreboardCard
+              players={players}
+              currentUserId={user?.uid}
+              isHost={isHost}
+              onResetScores={handleResetScores}
+            />
+          )}
 
           <div className="bg-[#1E293B] border border-slate-700/80 rounded-2xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
@@ -2659,6 +2927,7 @@ export default function App() {
           <QuestChapterCard
             questNumber={roomData.currentQuest}
             needsTwoFails={needsTwoFails}
+            storyVariant={roomData.questStoryVariants?.[(roomData.currentQuest || 1) - 1] ?? 0}
           />
         )}
 
@@ -3088,6 +3357,12 @@ export default function App() {
                         >
                           {rDef.name}
                         </p>
+                        {roomData.lastScoreBreakdown?.[p.id]?.note && (
+                          <p className="text-[11px] font-bold text-amber-300 mt-0.5">
+                            +{roomData.lastScoreBreakdown[p.id].earned} Poin •{' '}
+                            {roomData.lastScoreBreakdown[p.id].note}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <span
@@ -3101,6 +3376,15 @@ export default function App() {
                 );
               })}
             </div>
+
+            {/* Papan Klasemen Akumulasi Poin */}
+            <ScoreboardCard
+              players={players}
+              currentUserId={user?.uid}
+              breakdown={roomData.lastScoreBreakdown}
+              isHost={isHost}
+              onResetScores={handleResetScores}
+            />
 
             {isHost ? (
               <button
@@ -3131,6 +3415,107 @@ export default function App() {
 // ============================================================================
 // SUB-KOMPONEN UI
 // ============================================================================
+function ScoreboardCard({ players, currentUserId, breakdown = null, isHost = false, onResetScores }) {
+  const sortedPlayers = useMemo(() => {
+    return [...players].sort((a, b) => {
+      const scoreDiff = (b.score || 0) - (a.score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return (b.wins || 0) - (a.wins || 0);
+    });
+  }, [players]);
+
+  return (
+    <div className="bg-[#1E293B] border border-amber-500/40 rounded-2xl p-4 space-y-3 shadow-xl">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+            <Trophy className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white">
+              Scoreboard Ksatria
+            </h3>
+            <p className="text-[10px] text-slate-400">
+              Menang +100 • Bonus Merlin/Assassin +30/+40 • Partisipasi +25
+            </p>
+          </div>
+        </div>
+
+        {isHost && onResetScores && (
+          <button
+            type="button"
+            onClick={onResetScores}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-bold text-slate-300 transition"
+          >
+            Reset Skor
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        {sortedPlayers.map((p, idx) => {
+          const rank = idx + 1;
+          const earnedNow = breakdown?.[p.id]?.earned;
+          const isMe = p.id === currentUserId;
+
+          const rankStyle =
+            rank === 1
+              ? 'bg-amber-400 text-slate-950 border-amber-300'
+              : rank === 2
+              ? 'bg-slate-300 text-slate-950 border-slate-200'
+              : rank === 3
+              ? 'bg-amber-700 text-amber-100 border-amber-600'
+              : 'bg-slate-800 text-slate-400 border-slate-700';
+
+          return (
+            <div
+              key={p.id}
+              className={`px-3 py-2 rounded-xl border flex items-center justify-between gap-2 ${
+                isMe
+                  ? 'bg-amber-500/10 border-amber-500/40'
+                  : 'bg-[#0B1120]/75 border-slate-800'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span
+                  className={`w-6 h-6 rounded-lg border text-xs font-black flex items-center justify-center shrink-0 ${rankStyle}`}
+                >
+                  {rank}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-bold text-white truncate flex items-center gap-1.5">
+                    <span>{p.name}</span>
+                    {isMe && (
+                      <span className="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 text-[9px] font-bold">
+                        Kamu
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    {p.wins || 0} Menang • {p.gamesPlayed || 0} Main
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right shrink-0">
+                <div className="flex items-center justify-end gap-1 text-amber-400 font-black text-sm">
+                  <Award className="w-3.5 h-3.5" />
+                  <span>{p.score || 0}</span>
+                </div>
+                {typeof earnedNow === 'number' && (
+                  <span className="text-[10px] font-extrabold text-emerald-400">
+                    +{earnedNow} pts
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RoleToggleRow({ title, subtitle, badge, portraits = [], enabled, disabled, onToggle }) {
   return (
     <button
